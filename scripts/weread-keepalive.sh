@@ -224,7 +224,7 @@ if [[ "${1:-}" == "--once" ]]; then
 fi
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') keepalive starting (interval=${INTERVAL}s)"
-echo "$(date +'%Y-%m-%d %H:%M:%S') strategy: harvest Set-Cookie from homepage + persist to $ENV_FILE"
+echo "$(date +'%Y-%m-%d %H:%M:%S') strategy: POST /web/login/renewal -> harvest new wr_skey -> persist to $ENV_FILE"
 echo "$(date +'%Y-%m-%d %H:%M:%S') self-stops on -2012 (cookie genuinely dead) or 3 consecutive HTTP failures"
 trap 'echo "$(date +'\''%Y-%m-%d %H:%M:%S'\'') keepalive stopping (signal)"; exit 0' INT TERM
 
