@@ -1,8 +1,8 @@
 # ai-radar
 
-为一名 AI infra 研究者本人定制的 AI/经济信息聚合器。卡兹克 [AIHOT](https://aihot.virxact.com) 的个人化分支：保留分级信源 + 多维评分 + AI 日报这套架构，但把"内容创作者视角"翻成"研究者视角"——**硬核论文加权而非降权**。
+为一名 AI infra 研究者本人定制的 AI/经济信息聚合器。卡兹克 [AIHOT](https://aihot.virxact.com) 的个人化复线：保留分级信源 + 多维评分 + AI 日报这套架构，但把"内容创作者视角"翻成"研究者视角"——**硬核论文加权而非降权**。
 
-> taste 通过**信源筛选 + 评分 prompt** 体现（不用 embedding）；架构上砍掉了 AIHOT 的事件聚类和 relevance_to_me 维度。
+
 
 ## 文档
 
@@ -88,12 +88,12 @@ tail -f data/weread.log
 
 可以放在 shell env 或项目根的 `.env`（`KEY=value` 或 `export KEY=value` 都支持）。`.env` 已被 gitignore。
 
-| 变量                               | 必填                    | 默认值                     | 用途                                                                                                                                      |
-| ---------------------------------- | ----------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEEPSEEK_API_KEY` 或 `DPSK_API`   | ✅ 评分用                | —                          | DeepSeek 评分 (`pipeline/score.py`)                                                                                                       |
-| `DEEPSEEK_API_BASE`                | –                       | `https://api.deepseek.com` | OpenAI-兼容 endpoint                                                                                                                      |
+| 变量                               | 必填                    | 默认值                     | 用途                                                                                                                                              |
+| ---------------------------------- | ----------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEEPSEEK_API_KEY` 或 `DPSK_API`   | ✅ 评分用                | —                          | DeepSeek 评分 (`pipeline/score.py`)                                                                                                               |
+| `DEEPSEEK_API_BASE`                | –                       | `https://api.deepseek.com` | OpenAI-兼容 endpoint                                                                                                                              |
 | `DEEPSEEK_MODEL`                   | –                       | `deepseek-v4-flash`        | 模型 ID。V4 系: `deepseek-v4-flash`(默认, 便宜/快)/`deepseek-v4-pro`(更强, 评分质量优先时用)。`deepseek-chat`/`deepseek-reasoner` 2026-07-24 弃用 |
-| `WEREAD_COOKIE` 或 `weread_cookie` | 公众号 走 WeRead 时必填 | —                          | 微信读书 cookie；DevTools Network tab → 任一请求 → Request Headers → Cookie 整行复制（不要 `copy(document.cookie)`，会缺 HTTP-only 字段） |
+| `WEREAD_COOKIE` 或 `weread_cookie` | 公众号 走 WeRead 时必填 | —                          | 微信读书 cookie；DevTools Network tab → 任一请求 → Request Headers → Cookie 整行复制（不要 `copy(document.cookie)`，会缺 HTTP-only 字段）         |
 
 ## 配置文件
 
@@ -108,15 +108,15 @@ tail -f data/weread.log
 
 ## 实现状态（2026-05-07）
 
-| Step  | 内容                                                                     | 状态   |
-| ----- | ------------------------------------------------------------------------ | ------ |
-| 1     | RSS 抓取 + SQLite 入库 + 去重 + cron + 22 英文源                         | ✅      |
-| 2.a   | kimi-cli 预筛                                                            | ✅      |
-| 2.b   | DeepSeek 4 维评分 + 类别 + 中文摘要 + 推荐理由                           | ✅      |
-| ~~3~~ | ~~embedding + 聚类 + relevance_to_me~~                                   | ❌ 砍掉 |
-| 3.5   | 加权（按 weights.toml）+ 二维阈值精选                                    | ✅      |
-| 4     | FastAPI Web 时间线 + Markdown 日报 + 反馈                                | ✅      |
-| 5.a   | 公众号接入（wechat2rss 14 + WeRead 直连 5 + 官方 RSS 1 = 20 个上桌）     | ✅      |
-| 5.b   | 微信读书 cookie 直连 fetcher（`/web/mp/articles` + 保活脚本 + 过期自停） | ✅      |
-| 5.c   | X (RSSHub) / arXiv 摘要专用 / scrape fetcher                             | ⏳      |
-| 6     | 微信公众号深度（WeWe RSS 自建）/ 趋势预测 / 热度指数                     | ⏳      |
+| Step  | 内容                                                                                                                                                                                         | 状态   |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1     | RSS 抓取 + SQLite 入库 + 去重 + cron + 22 英文源                                                                                                                                             | ✅      |
+| 2.a   | kimi-cli 预筛                                                                                                                                                                                | ✅      |
+| 2.b   | DeepSeek 4 维评分 + 类别 + 中文摘要 + 推荐理由                                                                                                                                               | ✅      |
+| ~~3~~ | ~~embedding + 聚类 + relevance_to_me~~                                                                                                                                                       | ❌ 砍掉 |
+| 3.5   | 加权（按 weights.toml）+ 二维阈值精选                                                                                                                                                        | ✅      |
+| 4     | FastAPI Web 时间线 + Markdown 日报 + 反馈                                                                                                                                                    | ✅      |
+| 5.a   | 公众号接入：wechat2rss 14 + WeRead 直连 5 + 官方 RSS 1 = **20 个公众号每日抓取**；WeRead 5 个 (NeuralTalk / PaperAgent / 工程芯一 / 青稞AI / AI Infra之道) 是 wechat2rss **不收录**的硬核源  | ✅      |
+| 5.b   | WeRead cookie 自治续期：`scripts/weread-keepalive.sh` 走 `POST /web/login/renewal` 真续期 (不是 GET / 那种过时玩法), 过 90 分钟服务端自动发新 `wr_skey` 写回 .env, **不 ssh 上去也能跑过夜** | ✅      |
+| 5.c   | X (RSSHub 自建) ✅ / Zhihu (RSSHub 自建 + 用户 cookie) ✅ / arXiv 摘要专用 / Anthropic scrape                                                                                                  | 🟡 部分 |
+| 6     | WeWe RSS 自建 / 趋势预测 / 热度指数                                                                                                                                                          | ⏳      |
