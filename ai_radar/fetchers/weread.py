@@ -267,6 +267,16 @@ def _mp_book_to_items(payload: dict, book_id: str) -> list[Item]:
                 # No stable id — skip rather than synthesize, otherwise dedup
                 # collapses every idless article into one row.
                 continue
+            # WeRead /web/mp/articles occasionally encodes base64url's `_` as
+            # `~` in originalId (~10% of items). mp.weixin's strict base64url
+            # parser then rejects the URL with "参数错误" (verified 2026-05-07).
+            # Restore `_` for a canonical mp.weixin URL.
+            original_id = original_id.replace("~", "_")
+            # mp.weixin canonical short id is exactly 22 chars (base64url of
+            # 16 bytes). Anything else is a truncation or junk in the WeRead
+            # response — skip rather than store an unclickable URL.
+            if len(original_id) != 22:
+                continue
             ts = mp.get("time") or inner.get("createTime") or 0
             published = (
                 datetime.fromtimestamp(ts, tz=timezone.utc)
