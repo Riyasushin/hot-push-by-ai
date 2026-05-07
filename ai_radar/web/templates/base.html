@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1116">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ai-radar">
+  <title>ai-radar · {{ view }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">ai-radar</div>
+    <nav>
+      <a href="/" class="{{ 'active' if view_key == 'home' else '' }}">精选</a>
+      <a href="/all" class="{{ 'active' if view_key == 'all' else '' }}">全部</a>
+      <a href="/daily" class="{{ 'active' if view_key == 'daily' else '' }}">日报</a>
+      <span class="sep">·</span>
+      {% for c in categories %}
+        <a href="/category/{{ c }}"
+           class="cat {{ 'active' if view_key == 'cat:' + c else '' }}">{{ c }}</a>
+      {% endfor %}
+    </nav>
+    <div class="meta">
+      {% if stats %}
+        scored <b>{{ stats.total }}</b> · selected <b>{{ stats.selected }}</b> · pending <b>{{ stats.pending }}</b>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if health %}
+    {% if health.weread_auth_expired %}
+      <div class="banner banner-error">
+        <strong>WeRead cookie 过期</strong>:
+        最近一次 fetch 抓取微信读书源时返回 <code>errcode -2012</code>。
+        重抓 cookie：
+        <code>bash scripts/weread-cookie-grab.sh --write</code>
+        （日志: <code>data/weread.log</code>）。
+      </div>
+    {% elif health.rsshub_blocked %}
+      <div class="banner banner-warn">
+        <strong>RSSHub 抓取异常</strong>:
+        知乎 / X 类信源返回 403/503/timeout，可能是本地 RSSHub 容器挂了
+        或 cookie 没配。
+        <code>docker compose -f infra/rsshub.docker-compose.yml ps</code>
+        看一下。
+      </div>
+    {% elif health.other_errors > 5 %}
+      <div class="banner banner-warn">
+        最近一次 fetch 有 <strong>{{ health.other_errors }}</strong> 个其他错误
+        ({{ health.errors|length }} total)。
+        <code>uv run radar status</code> 查详情。
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <main>
+    {% block body %}{% endblock %}
+  </main>
+
+  <footer>
+    <span class="dim">{{ view }} · {{ now_utc }}</span>
+  </footer>
+
+  <script>
+    // POST /feedback/<id> — toggles a (item_id, signal) row server-side.
+    // Response: { active: bool, cleared_opposite: bool }. Updates local
+    // button state without page reload. Mutual exclusion (👍↔👎) is mirrored
+    // in the UI.
+    function sendFeedback(itemId, signal, btn) {
+      const fd = new FormData();
+      fd.append('signal', signal);
+      fetch('/feedback/' + itemId, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(resp => {
+          btn.classList.toggle('active', resp.active);
+          if (resp.cleared_opposite) {
+            const opp = signal === 'thumbs_up' ? 'thumbs_down'
+                       : signal === 'thumbs_down' ? 'thumbs_up' : null;
+            if (opp) {
+              const card = btn.closest('.card, li');
+              const oppBtn = card && card.querySelector(
+                'button.fb[data-signal="' + opp + '"]');
+              if (oppBtn) oppBtn.classList.remove('active');
+            }
+          }
+        })
+        .catch(e => { btn.textContent = '✗'; });
+    }
+  </script>
+</body>
+</html>

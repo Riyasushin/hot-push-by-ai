@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1 class="view-title">{{ view }}</h1>
+
+{% if items|length == 0 %}
+  <div class="empty">
+    没有条目。可能你刚跑完 fetch / score / weight，但还没有过阈值的精选。
+    <br>试试 <a href="/all">/all</a>（看全部已评分）或调一下 <code>weights.toml</code> 的阈值。
+  </div>
+{% else %}
+  <ul class="cards">
+    {% for it in items %}
+      <li class="card{% if show_unselected and it.is_selected == 0 %} card-dim{% endif %}">
+        <div class="card-head">
+          <span class="cat-pill cat-{{ it.category }}">{{ it.category }}</span>
+          <span class="tier tier-{{ it.source_tier }}">{{ it.source_tier }}</span>
+          <span class="source">{{ it.source_name }}</span>
+          <span class="date">{{ it.published_at|fmt_datetime }}</span>
+          {% if it.total is not none %}
+            <span class="total" title="加权总分">⭐ {{ it.total|round1 }}</span>
+          {% endif %}
+          {% if it.endorsement_count and it.endorsement_count > 1 %}
+            <span class="badge endorsed" title="多人赞同, 已合并显示">
+              👥 {{ it.endorsement_count }} 人推荐
+            </span>
+          {% endif %}
+          {% if show_unselected and it.is_selected == 0 %}
+            <span class="badge dim">未精选</span>
+          {% endif %}
+        </div>
+
+        <h2><a href="{{ it.url }}" target="_blank" rel="noopener">{{ it.title }}</a></h2>
+
+        {% if it.summary_zh %}
+          <p class="summary">{{ it.summary_zh }}</p>
+        {% endif %}
+
+        {% if it.reason %}
+          <p class="reason">💡 {{ it.reason }}</p>
+        {% endif %}
+
+        <div class="dims">
+          <span title="硬核度">硬 {{ it.hardcore|round1 }}</span>
+          <span title="一手程度">一 {{ it.primary_src|round1 }}</span>
+          <span title="信息密度">密 {{ it.density|round1 }}</span>
+          <span title="新颖度">新 {{ it.novelty|round1 }}</span>
+        </div>
+
+        {% set fb = feedback.get(it.id, []) if feedback else [] %}
+        <div class="actions">
+          <button class="fb {{ 'active' if 'thumbs_up' in fb else '' }}"
+                  data-signal="thumbs_up"
+                  onclick="sendFeedback({{ it.id }}, 'thumbs_up', this)">👍</button>
+          <button class="fb {{ 'active' if 'thumbs_down' in fb else '' }}"
+                  data-signal="thumbs_down"
+                  onclick="sendFeedback({{ it.id }}, 'thumbs_down', this)">👎</button>
+          <button class="fb {{ 'active' if 'saved' in fb else '' }}"
+                  data-signal="saved"
+                  onclick="sendFeedback({{ it.id }}, 'saved', this)">★ 收藏</button>
+          <button class="fb {{ 'active' if 'hidden' in fb else '' }}"
+                  data-signal="hidden"
+                  onclick="sendFeedback({{ it.id }}, 'hidden', this)">隐藏</button>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if pagination %}
+  <nav class="pagination">
+    {% if pagination.has_prev %}
+      <a href="?page={{ pagination.prev }}&size={{ pagination.size }}">‹ 上一页</a>
+    {% else %}
+      <span class="dim">‹ 上一页</span>
+    {% endif %}
+    <span class="pg-info">
+      第 {{ pagination.page }} / {{ pagination.pages }} 页
+      · 共 {{ pagination.total }} 条
+      · 每页 {{ pagination.size }}
+    </span>
+    {% if pagination.has_next %}
+      <a href="?page={{ pagination.next }}&size={{ pagination.size }}">下一页 ›</a>
+    {% else %}
+      <span class="dim">下一页 ›</span>
+    {% endif %}
+    <span class="pg-sep">·</span>
+    <span class="pg-info dim">每页:</span>
+    <a href="?page=1&size=20">20</a>
+    <a href="?page=1&size=50">50</a>
+    <a href="?page=1&size=100">100</a>
+    <a href="?page=1&size=200">200</a>
+  </nav>
+{% endif %}
+
+{% endblock %}

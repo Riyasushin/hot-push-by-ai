@@ -1,0 +1,377 @@
+:root {
+  --bg: #0e1116;
+  --bg2: #161b22;
+  --bg3: #1f242c;
+  --fg: #e6edf3;
+  --dim: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #ffa657;
+  --green: #56d364;
+  --orange: #ffa657;
+  --red: #f85149;
+  --border: #30363d;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1.55;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: var(--bg3); padding: 2px 5px; border-radius: 3px; font-size: 0.92em; }
+
+/* ---- top bar ---- */
+.topbar {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--bg2);
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.topbar .brand {
+  font-weight: 700; letter-spacing: 0.04em;
+  color: var(--accent);
+  font-size: 1.05rem;
+}
+.topbar nav { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+.topbar nav a {
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  color: var(--fg);
+}
+.topbar nav a.active { background: var(--accent); color: #0e1116; }
+.topbar nav a.cat { font-size: 0.85em; color: var(--dim); }
+.topbar nav a.cat.active { background: var(--accent2); color: #0e1116; }
+.topbar nav .sep { color: var(--dim); }
+.topbar .meta { margin-left: auto; color: var(--dim); font-size: 0.85em; }
+.topbar .meta b { color: var(--fg); }
+
+main { max-width: 920px; margin: 1.5rem auto; padding: 0 1.5rem; }
+
+.view-title { font-size: 1.3rem; margin: 0 0 1rem; color: var(--dim); font-weight: 500; }
+
+/* ---- cards ---- */
+.cards { list-style: none; padding: 0; margin: 0; }
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--accent); }
+.card-dim { opacity: 0.55; }
+
+.card-head {
+  display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;
+  font-size: 0.82em; color: var(--dim);
+  margin-bottom: 0.4rem;
+}
+.card h2, .card h3 { margin: 0.2rem 0 0.6rem; font-weight: 600; }
+.card h2 { font-size: 1.08rem; }
+.card h3 { font-size: 1rem; }
+
+.summary { color: var(--fg); margin: 0.3rem 0; }
+.reason {
+  color: var(--accent2);
+  font-size: 0.92em;
+  margin: 0.4rem 0;
+  border-left: 2px solid var(--accent2);
+  padding-left: 0.7rem;
+}
+
+.dims {
+  display: flex; gap: 0.7rem; margin-top: 0.5rem;
+  font-size: 0.78em; color: var(--dim);
+}
+.dims span { background: var(--bg3); padding: 1px 7px; border-radius: 3px; }
+
+.actions { margin-top: 0.7rem; display: flex; gap: 0.4rem; }
+.actions button {
+  background: var(--bg3); color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+.actions button:hover { border-color: var(--accent); }
+.actions button.fb.active {
+  background: var(--accent);
+  color: #0e1116;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.actions button.fb.active:hover { background: var(--accent2); border-color: var(--accent2); }
+
+/* ---- pills ---- */
+.cat-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75em;
+  background: var(--bg3);
+  color: var(--accent2);
+  border: 1px solid var(--border);
+}
+.cat-论文研究   { color: #79c0ff; }
+.cat-infra工程  { color: #56d364; }
+.cat-模型发布   { color: #ffa657; }
+.cat-产品发布   { color: #d2a8ff; }
+.cat-行业经济   { color: #f1e05a; }
+.cat-技巧与观点 { color: #5fd9e5; }
+
+.tier {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 0.72em;
+  font-family: ui-monospace, monospace;
+  border: 1px solid var(--border);
+}
+.tier-T1   { color: var(--green); border-color: var(--green); }
+.tier-T1\.5 { color: var(--accent2); border-color: var(--accent2); }
+.tier-T2   { color: var(--dim); }
+
+.total { color: var(--accent2); font-weight: 600; }
+.badge.dim { color: var(--dim); border: 1px dashed var(--border); padding: 0 5px; border-radius: 3px; font-size: 0.75em; }
+.badge.endorsed {
+  color: var(--green);
+  border: 1px solid var(--green);
+  padding: 0 6px; border-radius: 3px; font-size: 0.75em;
+  background: rgba(86, 211, 100, 0.08);
+}
+
+.pagination {
+  display: flex; gap: 0.5rem; align-items: center;
+  flex-wrap: wrap;
+  margin: 0.4rem 0 0.8rem;
+  font-size: 0.9em;
+  color: var(--dim);
+}
+.pagination a {
+  color: var(--accent2);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-decoration: none;
+}
+.pagination a:hover { border-color: var(--accent); color: var(--accent); }
+.pagination .pg-info { padding: 0 0.5rem; }
+.pagination .pg-sep { color: var(--border); }
+
+.banner {
+  padding: 0.7rem 1rem;
+  margin: 0.6rem auto 0;
+  max-width: 900px;
+  border-radius: 6px;
+  font-size: 0.92em;
+  line-height: 1.45;
+  border: 1px solid var(--border);
+}
+.banner code {
+  font-family: ui-monospace, monospace;
+  background: rgba(0,0,0,0.25);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+.banner-error {
+  background: rgba(248, 81, 73, 0.10);
+  border-color: #f85149;
+  color: #ffa198;
+}
+.banner-warn {
+  background: rgba(241, 224, 90, 0.10);
+  border-color: #d29922;
+  color: #f1e05a;
+}
+
+.empty {
+  background: var(--bg2);
+  border: 1px dashed var(--border);
+  padding: 2rem;
+  border-radius: 8px;
+  color: var(--dim);
+  text-align: center;
+}
+
+/* ---- daily ---- */
+.daily-nav {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9em;
+  color: var(--dim);
+}
+.daily-date-select {
+  background: var(--bg3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.95em;
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 14rem;
+}
+.daily-date-select:hover  { border-color: var(--accent); }
+.daily-date-select:focus  { outline: none; border-color: var(--accent); }
+.daily-step {
+  display: inline-block;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  text-decoration: none;
+}
+a.daily-step        { color: var(--accent2); }
+a.daily-step:hover  { border-color: var(--accent); color: var(--accent); }
+.daily-step.dim     { color: var(--border); cursor: default; }
+.daily-count        { margin-left: auto; font-size: 0.85em; }
+
+.daily-toc {
+  background: var(--bg2); padding: 0.6rem 1rem;
+  border-radius: 6px; margin-bottom: 1.5rem;
+  font-size: 0.9em;
+}
+.daily-toc a { margin-right: 0.8rem; }
+.daily-section { margin-bottom: 2rem; }
+.daily-section > h2 {
+  font-size: 1rem !important;
+  border-radius: 999px !important;
+  display: inline-block;
+  padding: 4px 14px !important;
+  margin-bottom: 0.8rem !important;
+}
+
+.dim { color: var(--dim); }
+
+footer {
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 0.8em;
+  color: var(--dim);
+}
+
+/* ============================================================
+   Mobile (≤ 600px) — phone-first reading mode.
+   Goals:
+     1. Topbar nav: horizontal scroll (no wrap mess)
+     2. Card head: 2 rows max — primary (cat + score), meta (tier·source·date dim)
+     3. Action buttons: bigger tap targets (Apple HIG: 44px min)
+     4. Dims row: smaller font, single row
+     5. Banner / pagination: padding tightened for thin screens
+   ============================================================ */
+@media (max-width: 600px) {
+  body { font-size: 14px; }
+
+  main { margin: 1rem auto; padding: 0 0.8rem; }
+
+  /* ---- topbar: brand on top, nav horizontal-scrolls below ---- */
+  .topbar {
+    padding: 0.5rem 0.8rem;
+    gap: 0.5rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .topbar .brand { font-size: 0.95rem; align-self: flex-start; }
+  .topbar nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;             /* Firefox */
+    padding-bottom: 2px;
+    gap: 0.3rem;
+  }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar nav a {
+    flex: 0 0 auto;                    /* don't shrink, scroll instead */
+    padding: 0.3rem 0.6rem;
+    font-size: 0.9em;
+  }
+  .topbar nav .sep { display: none; }   /* the · between general & cat sections */
+  .topbar .meta {
+    margin-left: 0;
+    font-size: 0.75em;
+    align-self: flex-start;
+  }
+
+  /* ---- card: tighter padding, primary line + meta line ---- */
+  .card {
+    padding: 0.8rem 0.9rem;
+    margin-bottom: 0.8rem;
+    border-radius: 6px;
+  }
+  .card-head {
+    gap: 0.4rem;
+    font-size: 0.78em;
+    margin-bottom: 0.3rem;
+  }
+  .card h2 { font-size: 1.02rem; line-height: 1.35; margin: 0.3rem 0 0.4rem; }
+  .summary { font-size: 0.95em; }
+  .reason  { font-size: 0.88em; padding-left: 0.5rem; }
+
+  /* ---- dims: shrink to compact row ---- */
+  .dims {
+    gap: 0.35rem;
+    font-size: 0.72em;
+    margin-top: 0.4rem;
+  }
+  .dims span { padding: 0 5px; }
+
+  /* ---- actions: 44px tap targets, equal flex ---- */
+  .actions {
+    margin-top: 0.6rem;
+    gap: 0.3rem;
+  }
+  .actions button {
+    flex: 1 1 0;
+    min-height: 38px;
+    padding: 6px 4px;
+    font-size: 0.95em;
+  }
+
+  /* ---- pagination: tighter ---- */
+  .pagination {
+    gap: 0.3rem;
+    font-size: 0.85em;
+  }
+  .pagination .pg-info { padding: 0 0.2rem; font-size: 0.85em; }
+  .pagination a { padding: 3px 7px; }
+
+  /* ---- daily nav dropdown: full width on phone ---- */
+  .daily-nav { padding: 0.5rem 0.6rem; gap: 0.4rem; }
+  .daily-date-select { flex: 1 1 auto; min-width: 0; }
+  .daily-count { display: none; }       /* freed for the dropdown */
+
+  /* ---- banner: edge-to-edge, slimmer ---- */
+  .banner {
+    margin: 0.4rem 0.6rem 0;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85em;
+  }
+
+  /* ---- view title: lighter ---- */
+  .view-title { font-size: 1.05rem; margin-bottom: 0.7rem; }
+
+  footer { padding: 1rem 0.5rem; }
+}
+
+/* iOS safe-area (notch / home indicator) */
+@supports (padding: max(0px)) {
+  .topbar { padding-left: max(1.5rem, env(safe-area-inset-left));
+            padding-right: max(1.5rem, env(safe-area-inset-right)); }
+  footer  { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+}

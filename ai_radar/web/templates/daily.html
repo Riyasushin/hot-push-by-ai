@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1 class="view-title">{{ view }}</h1>
+
+{% if nav %}
+  <nav class="daily-nav">
+    <label class="dim" for="daily-date">日期：</label>
+    <select id="daily-date" class="daily-date-select"
+            onchange="if(this.value) location.href='/daily/' + this.value">
+      {% if nav.available|length == 0 %}
+        <option value="">（最近两周没有精选条目）</option>
+      {% else %}
+        {% for d in nav.available %}
+          <option value="{{ d }}" {% if d == nav.current %}selected{% endif %}>
+            {{ d }}{% if d == nav.available[0] %} · 最新{% endif %}
+          </option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    {% if nav.newer %}
+      <a class="daily-step" href="/daily/{{ nav.newer }}" title="更新一天">‹</a>
+    {% else %}
+      <span class="daily-step dim">‹</span>
+    {% endif %}
+    {% if nav.older %}
+      <a class="daily-step" href="/daily/{{ nav.older }}" title="更旧一天">›</a>
+    {% else %}
+      <span class="daily-step dim">›</span>
+    {% endif %}
+    <span class="dim daily-count">{{ nav.available|length }} 天有内容</span>
+  </nav>
+{% endif %}
+
+{% set total_today = by_cat.values()|map('length')|sum %}
+
+{% if total_today == 0 %}
+  <div class="empty">
+    {{ date }} 没有精选。可能这天发布的条目少，或者还没跑 score/weight。
+  </div>
+{% else %}
+
+<div class="daily-toc">
+  跳转到：
+  {% for cat in categories %}
+    {% if by_cat[cat]|length > 0 %}
+      <a href="#sec-{{ loop.index }}">{{ cat }} <span class="dim">({{ by_cat[cat]|length }})</span></a>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% for cat in categories %}
+  {% if by_cat[cat]|length > 0 %}
+    <section id="sec-{{ loop.index }}" class="daily-section">
+      <h2 class="cat-pill cat-{{ cat }}">{{ cat }}</h2>
+      <ul class="cards">
+        {% for it in by_cat[cat] %}
+          <li class="card">
+            <div class="card-head">
+              <span class="tier tier-{{ it.source_tier }}">{{ it.source_tier }}</span>
+              <span class="source">{{ it.source_name }}</span>
+              <span class="total">⭐ {{ it.total|round1 }}</span>
+            </div>
+            <h3><a href="{{ it.url }}" target="_blank" rel="noopener">{{ it.title }}</a></h3>
+            {% if it.summary_zh %}
+              <p class="summary">{{ it.summary_zh }}</p>
+            {% endif %}
+            {% if it.reason %}
+              <p class="reason">💡 {{ it.reason }}</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endfor %}
+
+{% endif %}
+
+{% endblock %}

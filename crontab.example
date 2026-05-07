@@ -1,0 +1,26 @@
+# ai-radar — paste into `crontab -e` (adjust paths if you move the project)
+# All commands cd into the project then run via uv. Logs go to data/*.log.
+
+PROJ=/home/rj/tmp/tt18-aihot
+UV=/home/rj/.local/bin/uv
+
+# Every 2 hours — pull all active feeds, dedup-insert into SQLite.
+# fcntl lock (data/.fetch.lock) prevents overlap if a run takes >2h.
+0 */2 * * * cd $PROJ && $UV run radar fetch >> data/fetch.log 2>&1
+
+# Every 3 hours — kimi-cli prefilter at most 200 unjudged items per run.
+30 */3 * * * cd $PROJ && $UV run radar prefilter --limit 200 >> data/prefilter.log 2>&1
+
+# Every 4 hours — DeepSeek scoring at most 30 items per run.
+# (Costs real money. Lower the limit / interval if you want to spend less.)
+45 */4 * * * cd $PROJ && $UV run radar score --limit 30 >> data/score.log 2>&1
+
+# Daily 04:50 UTC — recompute total + is_selected (cheap, no LLM).
+50 4 * * * cd $PROJ && $UV run radar weight >> data/weight.log 2>&1
+
+# Daily 00:05 UTC (= 08:05 Asia/Shanghai) — write reports/YYYY-MM-DD.md
+5 0 * * * cd $PROJ && $UV run radar report >> data/report.log 2>&1
+
+# Web server: launch outside cron (it's long-running). Either run in tmux:
+#   uv run radar serve --host 0.0.0.0 --port 8000
+# or set up a systemd unit / supervisor.

@@ -1,0 +1,48 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.uv/
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Claude Code local state (per-project) ---
+.claude/
+
+# --- Secrets / credentials (NEVER COMMIT) ---
+.env
+.env.local
+.env.*.local
+.env.bak
+.env.*.tmp
+infra/rsshub.env
+infra/*.env
+cookie.tmp
+cookie.tmp*
+*.cookie
+*credentials*.json
+
+# --- Runtime data (regenerable) ---
+data/*.db
+data/*.db-*
+data/*.log
+data/.fetch.lock
+data/.rescore.lock
+data/.weread.lock
+data/weread_shelf.json
+
+# --- Generated reports (rebuilt by `radar report`) ---
+reports/*.md
+
+# --- Backups ---
+*.bak
+*.webarchive
+
+# --- Notes (working memos, not for repo distribution) ---
+# notes/  ← uncomment if you don't want personal TODOs / drift cases tracked

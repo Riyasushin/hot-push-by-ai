@@ -1,0 +1,71 @@
+# ai-radar 评分权重 + 二维阈值
+#
+# 改完 toml 下次跑 `radar weight` 即生效, 不用改代码、不用重启服务.
+#
+# 计算公式:
+#   weighted_avg = sum(dim_i * w_i) / sum(w_i)   # 0-10 scale
+#   total        = weighted_avg * tier_mul       # 0-12 ish (T1 有加成)
+#   is_selected  = total >= thresholds[category][tier]
+
+# 用户决策: 不要 embedding 维, taste 通过信源筛选 + score prompt 体现.
+# relevance_to_me 这一行保留只是占位, 当前没有这个 dim 进 scores 表, 它的权重被静默忽略.
+
+# LLM 评分维度. score prompt + scores 表列名都对齐这里.
+# 加新维度: 改 dims + weights 里加权重 + scores 表加列 + score prompt 加描述.
+[scoring]
+dims = ["hardcore", "primary_src", "density", "novelty"]
+
+[scoring.weights]
+hardcore        = 2.5    # ⭐ 最高权重: 硬核度. 反 AIHOT 极性 (它压硬核, 我们抬硬核).
+primary_src     = 1.5    # 一手程度
+density         = 1.5    # 信息密度 (去鸡汤、去 PR)
+novelty         = 1.0    # 新颖度
+relevance_to_me = 0.0    # 占位; Step 3 砍了, 暂不参与计算
+
+[scoring.tier_multiplier]
+T1   = 1.20    # T1 一手源给 +20% 加成
+T1_5 = 1.00    # T1.5 官方 X (这里 toml 不能用点, 程序里映射回 "T1.5")
+T2   = 0.85    # T2 KOL/媒体扣 15%
+
+# ----------------------------------------------------------------------------
+# 二维阈值: thresholds[category][tier]
+# 数值在 0-12 范围内 (= 加权均值 0-10 × tier 乘子 0.85-1.20).
+# 同一分数, T1 进精选, T2 进不了 — 模拟卡兹克"OpenAI 60 分过、KOL 60 分不过"的逻辑.
+#
+# 这是初值, 跑一段时间后看精选页噪音密度, 再调.
+# ----------------------------------------------------------------------------
+
+# 2026-05-07: 把 论文研究/infra工程/模型发布 三类合并为单一 `技术研究` —
+# 这三类在用户信源里事实上无法稳定区分(同一篇大厂技术解读三者皆是);
+# 区分技术深度的活儿全交给 hardcore 维度.
+[selection.thresholds."技术研究"]
+T1   = 5.0     # 用户最爱; T1 (lab 一手 + 顶刊论文) 阈值放低不漏
+T1_5 = 5.0     # 公众号大厂技术号写的硬核技术文都在 5-7 区间, 阈值不要踢这些
+T2   = 5.5     # T2 (英文 KOL / HN) 略提门槛过滤随手贴
+
+# 2026-05-07 决策: 产品发布 / 行业经济 阈值故意保持严格,
+# 即使当前 0/16 + 0/14 selected 也不松动. 理由:
+#   1. 这俩类在当前信源池里**信源数本身就少** (16 + 14 行 vs 技术研究 81 / 技巧与观点 89),
+#      绝对量小; 即使全放进精选也没多少. 等数据多了再决策更稳.
+#   2. 用户对这俩类是 secondary 关注 (见 user_taste_priorities.md), 0 selected 不焦虑.
+#   3. 反 AIHOT 极性: 产品发布 / 行业经济 默认应被压低, 让"硬核技术"占主桌.
+# 复审条件: 跑一周后, 如果产品发布信源进了 50+ 行还都没过线, 再按 -1.0 思路松.
+[selection.thresholds."产品发布"]
+T1   = 5.5
+T1_5 = 6.5
+T2   = 7.5     # 产品发布噪音多, T2 严控
+
+[selection.thresholds."行业经济"]
+T1   = 6.0     # 经济社会内容必须有思辨深度才上桌
+T1_5 = 7.0
+T2   = 8.0
+
+[selection.thresholds."技巧与观点"]
+T1   = 5.0     # T1 写 workflow/观点不多见, 看到了多半值得
+T1_5 = 5.0     # 公众号写 tips/观点 hardcore 普遍 5-6, 别踢掉
+T2   = 5.0     # 该类天生 hardcore 上不去 (方法论分享而非论文)
+
+# Step 2 评分 prompt 里要让模型分类的标签集 (代码侧用同一份).
+# 2026-05-07 简化: 6 类 → 4 类. 论文/infra/模型发布 合并成"技术研究".
+[categories]
+all = ["技术研究", "产品发布", "行业经济", "技巧与观点"]

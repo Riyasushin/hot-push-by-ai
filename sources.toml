@@ -1,0 +1,1006 @@
+# ai-radar 信源配置 — single source of truth
+#
+# 字段说明:
+#   name      唯一名（DB 同步键，改名 = 新源）
+#   tier      T1 | T1.5 | T2  （T1=官方一手, T1.5=官方 X, T2=KOL/媒体/社区）
+#   category  lab | infra | research | kol | econ | media | community
+#   url       feed URL
+#   fetcher   rss | arxiv | x | scrape
+#   active    true / false  (false 即占位，未来再激活)
+#   notes     可选备注
+#
+# ⚠️ 信源原则: 宁缺毋滥, 一手优先. 加新源前问自己一句"真的需要吗".
+
+# ================================
+# T1 — 厂商 / 实验室官方一手 (10)
+# ================================
+
+[[source]]
+name     = "OpenAI News"
+tier     = "T1"
+category = "lab"
+url      = "https://openai.com/news/rss.xml"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Anthropic News"
+tier     = "T1"
+category = "lab"
+url      = "https://www.anthropic.com/news"
+fetcher  = "scrape"
+active   = false
+notes    = "TODO 2026-05-07: Anthropic 不开放 RSS; 写 fetchers/scrape.py 抓 https://www.anthropic.com/news 的列表 + 文章正文; 选择器: a[href^='/news/']"
+
+[[source]]
+name     = "Anthropic Engineering Blog"
+tier     = "T1"
+category = "infra"
+url      = "https://www.anthropic.com/engineering"
+fetcher  = "scrape"
+active   = false
+notes    = "TODO 2026-05-07: Anthropic 工程博客, infra/agent harness 内容多; 同样需要 scrape; 跟 Anthropic News 公用同一个 scraper"
+
+[[source]]
+name     = "Anthropic Research"
+tier     = "T1"
+category = "research"
+url      = "https://www.anthropic.com/research"
+fetcher  = "scrape"
+active   = false
+notes    = "TODO 2026-05-07: Anthropic 论文 / 研究报告; 同样需要 scrape"
+
+[[source]]
+name     = "Google DeepMind Blog"
+tier     = "T1"
+category = "lab"
+url      = "https://deepmind.google/blog/rss.xml"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Google Research Blog"
+tier     = "T1"
+category = "lab"
+url      = "https://research.google/blog/rss/"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Microsoft Research Blog"
+tier     = "T1"
+category = "lab"
+url      = "https://www.microsoft.com/en-us/research/feed/"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Apple Machine Learning Research"
+tier     = "T1"
+category = "lab"
+url      = "https://machinelearning.apple.com/rss.xml"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Hugging Face Blog"
+tier     = "T1"
+category = "infra"
+url      = "https://huggingface.co/blog/feed.xml"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "NVIDIA Developer Blog"
+tier     = "T1"
+category = "infra"
+url      = "https://developer.nvidia.com/blog/feed/"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Meta AI Blog"
+tier     = "T1"
+category = "lab"
+url      = "https://ai.meta.com/blog/"
+fetcher  = "scrape"
+active   = false
+notes    = "Meta AI 不开放 RSS, Step 5 走 scrape"
+
+# ================================
+# T2 — 学术 (3 个 arXiv 主题)
+# ================================
+# 2026-05-07: arXiv 降级 T1→T2.
+# 原因：arXiv 是预印本，未经同行评审，"可行度"不稳；标题党、噪声、re-submit 充斥；
+# 当 T1 等价于 OpenAI/DeepMind 官方发布时它的可信度对不上。
+# 实务影响：T2 multiplier=1.0, T1 multiplier=1.2 — 同样的 4 维分数下 arXiv 更难
+# 进精选, 需要 hardcore/density 等绝对值更高才上得来 (这正是想要的).
+
+[[source]]
+name     = "arXiv cs.LG"
+tier     = "T2"
+category = "research"
+url      = "https://export.arxiv.org/rss/cs.LG"
+fetcher  = "rss"
+active   = true
+notes    = "ML 主分类，量大噪声大，靠 relevance_to_me 维度压"
+
+[[source]]
+name     = "arXiv cs.DC"
+tier     = "T2"
+category = "research"
+url      = "https://export.arxiv.org/rss/cs.DC"
+fetcher  = "rss"
+active   = true
+notes    = "Distributed/Parallel Computing — infra 研究核心"
+
+[[source]]
+name     = "arXiv cs.AR"
+tier     = "T2"
+category = "research"
+url      = "https://export.arxiv.org/rss/cs.AR"
+fetcher  = "rss"
+active   = true
+notes    = "Hardware Architecture — 关心硬件方向时打开"
+
+# ================================
+# T2 — 研究博主 (4)
+# ================================
+
+[[source]]
+name     = "Simon Willison"
+tier     = "T2"
+category = "kol"
+url      = "https://simonwillison.net/atom/everything/"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Lilian Weng"
+tier     = "T2"
+category = "kol"
+url      = "https://lilianweng.github.io/index.xml"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Sebastian Raschka — Ahead of AI"
+tier     = "T2"
+category = "kol"
+url      = "https://magazine.sebastianraschka.com/feed"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Chip Huyen"
+tier     = "T2"
+category = "kol"
+url      = "https://huyenchip.com/feed.xml"
+fetcher  = "rss"
+active   = true
+
+# ================================
+# T1 — 经济 / 思辨 (3)
+# ================================
+
+[[source]]
+name     = "Stratechery"
+tier     = "T1"
+category = "econ"
+url      = "https://stratechery.com/feed/"
+fetcher  = "rss"
+active   = true
+notes    = "大部分付费, free posts 仍值得"
+
+[[source]]
+name     = "Marginal Revolution"
+tier     = "T1"
+category = "econ"
+url      = "https://marginalrevolution.com/feed"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "Noah Smith — Noahpinion"
+tier     = "T1"
+category = "econ"
+url      = "https://www.noahpinion.blog/feed"
+fetcher  = "rss"
+active   = true
+
+# ================================
+# 科技媒体 RSS 占位 (2026-05-07 加, active=false; 试一周决定保留哪些)
+# ================================
+
+[[source]]
+name     = "Semianalysis"
+tier     = "T1.5"
+category = "infra"
+url      = "https://www.semianalysis.com/feed"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: chip / fab / supply chain 深度报道, 大部分付费但 free posts 仍值得"
+
+[[source]]
+name     = "ChinaTalk"
+tier     = "T1.5"
+category = "econ"
+url      = "https://www.chinatalk.media/feed"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: 中美科技 + 半导体政策, 与 Stratechery 互补"
+
+[[source]]
+name     = "Latent Space"
+tier     = "T1.5"
+category = "infra"
+url      = "https://www.latent.space/feed"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: AI 工程师视角的 podcast + 文章, 偏应用 / agent infra"
+
+[[source]]
+name     = "Dwarkesh Patel"
+tier     = "T2"
+category = "kol"
+url      = "https://www.dwarkeshpatel.com/feed"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: 长访谈 podcast, AI + econ + science; 量小, 每篇都很重"
+
+[[source]]
+name     = "MIT Technology Review"
+tier     = "T2"
+category = "media"
+url      = "https://www.technologyreview.com/feed/"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: 科技综合, AI 含量约 1/3"
+
+[[source]]
+name     = "Ars Technica"
+tier     = "T2"
+category = "media"
+url      = "https://feeds.arstechnica.com/arstechnica/index"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: 综合科技, 量大, 噪音多, 靠 prefilter 压"
+
+[[source]]
+name     = "TechCrunch — AI"
+tier     = "T2"
+category = "media"
+url      = "https://techcrunch.com/category/artificial-intelligence/feed/"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: AI 创投 / 产品发布报道, 偏行业经济类"
+
+[[source]]
+name     = "Import AI — Jack Clark"
+tier     = "T2"
+category = "kol"
+url      = "https://importai.substack.com/feed"
+fetcher  = "rss"
+active   = false
+notes    = "TODO: Anthropic 联创 Jack Clark 的周报, 论文综述风格"
+
+# ================================
+# T2 — 社区 (默认 active=true，量大但 prefilter 能压住)
+# ================================
+
+[[source]]
+name     = "Hacker News Front Page"
+tier     = "T2"
+category = "community"
+url      = "https://hnrss.org/frontpage"
+fetcher  = "rss"
+active   = true
+notes    = "AI 含量约 1/4，靠预筛降噪"
+
+# ================================
+# T1.5 — 官方 X 账号占位 (active=false, Step 5 走 RSSHub 激活)
+# ================================
+
+[[source]]
+name     = "X / @OpenAI"
+tier     = "T1.5"
+category = "lab"
+url      = "http://127.0.0.1:41200/twitter/user/OpenAI"
+fetcher  = "x"
+active   = false
+
+[[source]]
+name     = "X / @AnthropicAI"
+tier     = "T1.5"
+category = "lab"
+url      = "http://127.0.0.1:41200/twitter/user/AnthropicAI"
+fetcher  = "x"
+active   = false
+
+[[source]]
+name     = "X / @GoogleDeepMind"
+tier     = "T1.5"
+category = "lab"
+url      = "http://127.0.0.1:41200/twitter/user/GoogleDeepMind"
+fetcher  = "x"
+active   = false
+
+# ================================
+# T2 — AI infra 圈 KOL (X) 占位
+# ================================
+
+[[source]]
+name     = "X / @karpathy"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/twitter/user/karpathy"
+fetcher  = "x"
+active   = false
+
+[[source]]
+name     = "X / @tri_dao"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/twitter/user/tri_dao"
+fetcher  = "x"
+active   = false
+notes    = "FlashAttention / Mamba 作者"
+
+[[source]]
+name     = "X / @woosuk_k"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/twitter/user/woosuk_k"
+fetcher  = "x"
+active   = false
+notes    = "vLLM 核心"
+
+[[source]]
+name     = "X / @ggerganov"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/twitter/user/ggerganov"
+fetcher  = "x"
+active   = false
+notes    = "llama.cpp 作者"
+
+# ================================
+# 示例：知乎 / B 站 / 小红书占位
+# 接入方式见 docs/ADDING_SOURCES.md。所有 URL 都假设有 RSSHub 实例。
+# 把 rsshub.app 换成你自己的域名后再 active=true。
+# ================================
+
+[[source]]
+name     = "知乎 / 示例 (李沐)"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/answers/limu-9"
+fetcher  = "rss"
+active   = false
+notes    = "替换 limu-9 为目标作者的 url-token; 推荐自建 RSSHub"
+
+[[source]]
+name     = "B 站 / 示例 UP 动态"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/bilibili/user/dynamic/123456"
+fetcher  = "rss"
+active   = false
+notes    = "把 123456 换成 UP 主 uid"
+
+[[source]]
+name     = "小红书 / 示例博主"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/xiaohongshu/user/<userid>"
+fetcher  = "rss"
+active   = false
+notes    = "XHS 反爬重, 公共实例几乎必炸, 仅自建可勉强用"
+
+# ================================
+# T2 — 中文公众号占位 (微信反爬, Step 6 攻坚)
+# ================================
+
+[[source]]
+name     = "公众号 / 海外独角兽"
+tier     = "T1.5"
+category = "media"
+url      = ""
+fetcher  = "scrape"
+active   = false
+notes    = "TODO: 走 WeWe RSS / WeRSS 等中转"
+
+[[source]]
+name     = "公众号 / 范阳 Brainwave"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "scrape"
+active   = false
+
+[[source]]
+name     = "公众号 / 半导体行业观察"
+tier     = "T1.5"
+category = "media"
+url      = ""
+fetcher  = "scrape"
+active   = false
+
+# ============================================================================
+# 通过微信读书 shelf 探到的 bonus 公众号 (用户已订阅, wechat2rss 也有)
+
+[[source]]
+name     = "公众号 / 极客公园"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.bestblogs.dev/feed/11ea7163fbea99e2ab9fa2812ac3d179574886cc.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AI/科技综合媒体; 走 wechat2rss.bestblogs.dev"
+
+[[source]]
+name     = "公众号 / 数字生命卡兹克"
+tier     = "T1.5"
+category = "kol"
+url      = "https://wechat2rss.bestblogs.dev/feed/ff621c3e98d6ae6fceb3397e57441ffc6ea3c17f.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AIHOT 项目作者本人的公众号, 本项目灵感来源 ✨"
+
+[[source]]
+name     = "量子位 (官方原生 RSS)"
+tier     = "T2"
+category = "media"
+url      = "https://www.qbitai.com/feed"
+fetcher  = "rss"
+active   = true
+notes    = "AI 媒体; 有官网原生 RSS, 不走 wechat2rss"
+
+[[source]]
+name     = "公众号 / AI Infra之道"
+tier     = "T1.5"
+category = "kol"
+url      = "weread://book/MP_WXS_3010620007"
+fetcher  = "weread"
+active   = true
+notes    = "走 WeRead cookie + /web/mp/articles; Item.url 是 mp.weixin.qq.com/s/<id>"
+
+# ============================================================================
+# 微信读书 fetcher 示例 (需要 WEREAD_COOKIE 在 .env)
+# 用法见 docs/ADDING_SOURCES.md "路径 D: 微信读书 cookie 直连"
+#
+# 先 `uv run radar weread-list` 找 bookId, 再激活下面具体的:
+
+[[source]]
+name     = "WeRead / 文章收藏 (lumped)"
+tier     = "T2"
+category = "kol"
+url      = "weread://mpbook"
+fetcher  = "weread"
+active   = false
+notes    = "默认聚合 — 你在 WeRead 里随手收藏的所有公众号文章, 一锅烩"
+
+[[source]]
+name     = "WeRead / shelf 全部公众号"
+tier     = "T2"
+category = "kol"
+url      = "weread://shelf"
+fetcher  = "weread"
+active   = false
+notes    = "扫书架找所有订阅的独立公众号 'book', 自动批量抓"
+
+# ============================================================================
+# 用户精选的 24 个微信公众号 (2026-05-07 加)
+#
+# 接入方式: 自建 WeWe RSS (推荐) → 把 url 填成 http://<wewe-host>/feeds/<id>.atom
+# 详细流程见 docs/ADDING_SOURCES.md "公众号接入完整流程".
+#
+# 全部默认 active=false. URL 留空, 等 WeWe RSS 给到 feedId 再填.
+# 流程是: 一个一个加到 WeWe → 拿 feedId → 填这里的 url → active=true
+# ============================================================================
+
+# ---- 学术 / 论文解读 ----
+
+[[source]]
+name     = "公众号 / TsinghuaNLP"
+tier     = "T1.5"
+category = "lab"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "清华 NLP 实验室; 偏学术; 公共 wechat2rss 未收录, 可提 issue 或 self-host"
+
+[[source]]
+name     = "公众号 / PaperAgent"
+tier     = "T1.5"
+category = "kol"
+url      = "weread://book/MP_WXS_3941633310"
+fetcher  = "weread"
+active   = true
+notes    = "AI 论文速递/解读; wechat2rss 未收录, 走 WeRead cookie 直连"
+
+[[source]]
+name     = "公众号 / NeuralTalk"
+tier     = "T1.5"
+category = "kol"
+url      = "weread://book/MP_WXS_2394739085"
+fetcher  = "weread"
+active   = true
+notes    = "神经网络/AI 研究解读; wechat2rss 未收录, 走 WeRead cookie 直连"
+
+[[source]]
+name     = "公众号 / PaperWeekly"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.xlab.app/feed/3be891c2f4e526629ab055a297cc2cd6c1f0a563.xml"
+fetcher  = "rss"
+active   = true
+notes    = "论文综述大号; 论文研究 入桶大户; 量大需注意阈值; 走 wechat2rss.xlab.app"
+
+[[source]]
+name     = "公众号 / NICE学术"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "学术圈分享; 公共 wechat2rss 未收录, 可提 issue 或 self-host"
+
+# ---- AI 综合 / 媒体 ----
+
+[[source]]
+name     = "公众号 / 机器之心"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.bestblogs.dev/feed/8d97af31b0de9e48da74558af128a4673d78c9a3.xml"
+fetcher  = "rss"
+active   = true
+notes    = "国内 AI 媒体头部; 模型发布 / 产品发布 / 行业经济 三料大户; 走 bestblogs (2026-05-07: 比 xlab 更新更快)"
+
+[[source]]
+name     = "公众号 / AI寒武纪"
+tier     = "T1.5"
+category = "kol"
+url      = "https://wechat2rss.bestblogs.dev/feed/5903009f48a5e4aa44d8ac941a54fe3aafc3e03c.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AI 行业综合评论; 走 wechat2rss.bestblogs.dev"
+
+[[source]]
+name     = "公众号 / 青稞AI"
+tier     = "T1.5"
+category = "kol"
+url      = "weread://book/MP_WXS_3253103209"
+fetcher  = "weread"
+active   = true
+notes    = "AI 综合; wechat2rss 未收录, 走 WeRead cookie 直连"
+
+[[source]]
+name     = "公众号 / 知潜KnowFuture"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "未知风格; wechat2rss 列表暂未收录, 可去 https://github.com/ttttmr/Wechat2RSS/issues 提 issue 申请"
+
+[[source]]
+name     = "公众号 / InfoQ 中文"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.bestblogs.dev/feed/13da94d7eb314b49fa251cb7e8399cae29d772db.xml"
+fetcher  = "rss"
+active   = true
+notes    = "综合技术媒体, 含 AI 专栏; 行业经济 / infra工程 混杂; 走 wechat2rss.bestblogs.dev"
+
+# ---- infra / 工程 ----
+
+[[source]]
+name     = "公众号 / 字节跳动技术团队"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.xlab.app/feed/4025ea55575daf8bfd8227e68b28d9638b073267.xml"
+fetcher  = "rss"
+active   = true
+notes    = "字节工程博客中文版; infra工程 / 模型发布; 走 wechat2rss.xlab.app"
+
+[[source]]
+name     = "公众号 / 腾讯云开发者"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.bestblogs.dev/feed/6cec2c211479a5502896375860009782cf10c2ba.xml"
+fetcher  = "rss"
+active   = true
+notes    = "腾讯云技术博客; 走 wechat2rss.bestblogs.dev"
+
+[[source]]
+name     = "公众号 / 阿里云开发者"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.xlab.app/feed/c74ed6db00cfbf16f2a048a165b4453f982681f0.xml"
+fetcher  = "rss"
+active   = true
+notes    = "阿里云技术博客; 走 wechat2rss.xlab.app"
+
+[[source]]
+name     = "公众号 / 腾讯技术工程"
+tier     = "T1.5"
+category = "media"
+url      = "https://wechat2rss.xlab.app/feed/9685937b45fe9c7a526dbc32e4f24ba879a65b9a.xml"
+fetcher  = "rss"
+active   = true
+notes    = "腾讯综合技术博客; 走 wechat2rss.xlab.app"
+
+[[source]]
+name     = "公众号 / 工程芯一"
+tier     = "T1.5"
+category = "kol"
+url      = "weread://book/MP_WXS_3233222223"
+fetcher  = "weread"
+active   = true
+notes    = "infra/芯片导向; wechat2rss 未收录, 走 WeRead cookie 直连"
+
+[[source]]
+name     = "公众号 / InfraTech"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "infra 技术解读; 公共 wechat2rss 未收录, 可提 issue 或 self-host"
+
+[[source]]
+name     = "胡渊鸣 / yuanming.taichi.graphics"
+tier     = "T2"
+category = "kol"
+url      = "https://yuanming.taichi.graphics/index.xml"
+fetcher  = "rss"
+active   = false
+notes    = "Taichi 编译器作者个人学术站; 最近一条 2021, 全是 4 年前物理仿真论文 archive, 会淹没精选页; 公众号本号需 WeWe RSS"
+
+# ---- 思辨 / 投资 / 经济 ----
+
+[[source]]
+name     = "公众号 / 博古睿研究院"
+tier     = "T1.5"
+category = "media"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "Berggruen 研究院; 思辨/哲学/AI 与社会; 公共 wechat2rss 未收录; 官网 berggruen.org.cn 是 SPA 无 RSS, 走 issue 或 self-host"
+
+[[source]]
+name     = "公众号 / 真格基金"
+tier     = "T1.5"
+category = "econ"
+url      = "https://wechat2rss.bestblogs.dev/feed/47798a14d51da72e68fae4f7a259f096750cf03e.xml"
+fetcher  = "rss"
+active   = true
+notes    = "VC 视角; 行业经济 + 创业观察; 走 wechat2rss.bestblogs.dev"
+
+[[source]]
+name     = "公众号 / 42章经"
+tier     = "T1.5"
+category = "econ"
+url      = "https://wechat2rss.xlab.app/feed/31436fcc3bba8c2c2a9337a163afcb3b5a57a0a0.xml"
+fetcher  = "rss"
+active   = true
+notes    = "早期投资分析; 行业经济; 走 wechat2rss.xlab.app"
+
+# ---- KOL / 个人 ----
+
+[[source]]
+name     = "公众号 / 歸藏的AI工具箱"
+tier     = "T1.5"
+category = "kol"
+url      = "https://wechat2rss.bestblogs.dev/feed/1c3e3571b1627d23ee9c64521a0b0a41d3fe2987.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AI 工具/产品评测 + 技巧与观点; 走 wechat2rss.bestblogs.dev"
+
+[[source]]
+name     = "公众号 / 赛博禅心"
+tier     = "T1.5"
+category = "kol"
+url      = "https://wechat2rss.bestblogs.dev/feed/752c31ca0446b837339463fc5440539e20267d2f.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AI 思辨 / 技巧与观点 风味浓厚; 走 wechat2rss.bestblogs.dev"
+
+[[source]]
+name     = "公众号 / 泥巴青年"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "未确认风格; xlab.app + bestblogs.dev 两个公共 wechat2rss 都未收录; 可向任一仓库提 issue, 或 self-host WeWe RSS"
+
+[[source]]
+name     = "公众号 / 沧浪1"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "未确认风格; xlab.app + bestblogs.dev 两个公共 wechat2rss 都未收录; 可向任一仓库提 issue, 或 self-host WeWe RSS"
+
+[[source]]
+name     = "公众号 / 爱喝咖啡的猪"
+tier     = "T1.5"
+category = "kol"
+url      = ""
+fetcher  = "rss"
+active   = false
+notes    = "未确认风格; xlab.app + bestblogs.dev 两个公共 wechat2rss 都未收录; 可向任一仓库提 issue, 或 self-host WeWe RSS"
+
+# ============================================================================
+# ---- 知乎 KOL 批量 (28 个, 2026-05-07) ----
+#
+# urlToken 来源: WebSearch + 公开 zhihu.com/people/<token> 命中.
+# 接入方式: 走 RSSHub (rsshub.app 或自建实例).
+# 公共 rsshub.app 对知乎反爬不稳, 推荐替换成自建域名后再 active=true.
+# 已 active=true 的 22 个: 已通过至少一次搜索命中 urlToken.
+# active=false 的 6 个: 搜索未给出 urlToken, 留 TODO 待人工补.
+# ============================================================================
+
+[[source]]
+name     = "知乎 / Yibo Zhu"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/yibozhu"
+fetcher  = "rss"
+active   = true
+notes    = "ByteDance / StepFun CTO, MLSys / 网络系统"
+
+[[source]]
+name     = "知乎 / 毕导"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/bi-xiao-tian-99"
+fetcher  = "rss"
+active   = true
+notes    = "毕啸天, 清华化工博士, 科普段子手"
+
+[[source]]
+name     = "知乎 / Arthals"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/zhuozhiyongde"
+fetcher  = "rss"
+active   = true
+notes    = "北大医学生, 编程博客 arthals.ink"
+
+[[source]]
+name     = "知乎 / ZHANG Mingxing"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/james0zan"
+fetcher  = "rss"
+active   = true
+notes    = "清华计算机系助理教授, 高性能计算 / 大模型 infra"
+
+[[source]]
+name     = "知乎 / mathzeta2"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/zhe-ci-bu-neng"
+fetcher  = "rss"
+active   = true
+notes    = "北邮系统科学硕士, 数学 / 系统"
+
+[[source]]
+name     = "知乎 / 东川路第一伊蕾娜"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/23-65-18-56-56"
+fetcher  = "rss"
+active   = true
+notes    = "上海交大 (东川路) 风味, 系统 / AI"
+
+[[source]]
+name     = "知乎 / Timothy Liu"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/timothy-liu-50"
+fetcher  = "rss"
+active   = true
+notes    = "清华网络研究院博士 (网络空间安全方向)"
+
+[[source]]
+name     = "知乎 / 苏剑林"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/su-jian-lin-22"
+fetcher  = "rss"
+active   = true
+notes    = "kexue.fm / 科学空间, RoPE / RoFormer 作者, 月之暗面"
+
+[[source]]
+name     = "知乎 / SiriusNEO"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/chaofanlin"
+fetcher  = "rss"
+active   = true
+notes    = "MLSys 全栈, 算法 / IR / 加速"
+
+[[source]]
+name     = "知乎 / kaitoukito"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/shao-wei-12-45"
+fetcher  = "rss"
+active   = true
+notes    = "体系结构爱好者"
+
+[[source]]
+name     = "知乎 / 李博杰"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/li-bo-jie"
+fetcher  = "rss"
+active   = true
+notes    = "Logenic AI 联合创始人, 前华为天才少年, MSRA 出身"
+
+[[source]]
+name     = "知乎 / 猛猿"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/lemonround"
+fetcher  = "rss"
+active   = true
+notes    = "大猿搬砖简记, LLM 训练 / 并行 / 推理系统讲解"
+
+[[source]]
+name     = "知乎 / lusfie"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/...; 北大 AI 硕, AI Infra/LLM 推理"
+
+[[source]]
+name     = "知乎 / Infra研习社"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/...; AI Infra / GPU / LLM 学习笔记"
+
+[[source]]
+name     = "知乎 / 李沐"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/mli65"
+fetcher  = "rss"
+active   = true
+notes    = "沐神, D2L 作者, 前 Amazon 首席科学家, Boson AI; 注: 上面占位条目 limu-9 是错的, 这条才是真的"
+
+[[source]]
+name     = "知乎 / sonta"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/buhezuobugaoxing"
+fetcher  = "rss"
+active   = true
+notes    = "MIT CSAIL 博士, Linear Attention (GLA/GSA/DeltaNet/HGRN2)"
+
+[[source]]
+name     = "知乎 / 朱小霖"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/..."
+
+[[source]]
+name     = "知乎 / 手抓饼熊"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/tongsanpang"
+fetcher  = "rss"
+active   = true
+notes    = "哈工大背景, LLM 推理 / Megatron / SGLang 分析"
+
+[[source]]
+name     = "知乎 / IPADS-SYS"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/ipadssys"
+fetcher  = "rss"
+active   = true
+notes    = "上海交大并行与分布式系统实验室官方号 (SOSP/OSDI 常客)"
+
+[[source]]
+name     = "知乎 / Solaris"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/...; 多个同名号, 需手动确认目标人"
+
+[[source]]
+name     = "知乎 / 樱芯记忆"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/..."
+
+[[source]]
+name     = "知乎 / 圆角骑士魔理沙"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/marisa.moe"
+fetcher  = "rss"
+active   = true
+notes    = "编程语言 / 函数式 / 类型系统优秀答主"
+
+[[source]]
+name     = "知乎 / kaiyuan"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/...; LLM 推理 / vLLM / SGLang 写作者"
+
+[[source]]
+name     = "知乎 / Han Shen"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/han-shen-86"
+fetcher  = "rss"
+active   = true
+notes    = "清华 CS 硕, AI Infra, 多轮对话 KV cache 等"
+
+[[source]]
+name     = "知乎 / 田渊栋"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/tian-yuan-dong"
+fetcher  = "rss"
+active   = true
+notes    = "前 Meta FAIR Research Scientist Director, CMU PhD, Coconut / Dualformer"
+
+[[source]]
+name     = "知乎 / Dio-晶"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/xia-jing-jing-57"
+fetcher  = "rss"
+active   = true
+notes    = "芯片架构师, NVIDIA / HBM / Scale-Up 优秀答主"
+
+[[source]]
+name     = "知乎 / 异构计算教父"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/...; 名号未在公开搜索结果中关联到具体 urlToken"
+
+[[source]]
+name     = "知乎 / Arsmart"
+tier     = "T2"
+category = "kol"
+url      = ""    # TODO: fill in http://127.0.0.1:41200/zhihu/people/activities/<urlToken>
+fetcher  = "rss"
+active   = false
+notes    = "TODO 2026-05-07: lookup urlToken from zhihu.com/people/...; SJTU CS 博士, OSDI/PPoPP 论文笔记"
+
+[[source]]
+name     = "知乎 / BBuf"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/zhang-xiao-yu-45-67-74"
+fetcher  = "rss"
+active   = true
+notes    = "GiantPandaCV / OneFlow / PyTorch 推理优化"
