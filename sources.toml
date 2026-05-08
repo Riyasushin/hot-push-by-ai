@@ -122,8 +122,8 @@ tier     = "T2"
 category = "research"
 url      = "https://export.arxiv.org/rss/cs.LG"
 fetcher  = "rss"
-active   = true
-notes    = "ML 主分类，量大噪声大，靠 relevance_to_me 维度压"
+active   = false
+notes    = "ML 主分类，量大噪声大；2026-05-07 暂停 fetch (噪声 vs 价值不划算, 等专用 arxiv fetcher 上)"
 
 [[source]]
 name     = "arXiv cs.DC"
@@ -131,8 +131,8 @@ tier     = "T2"
 category = "research"
 url      = "https://export.arxiv.org/rss/cs.DC"
 fetcher  = "rss"
-active   = true
-notes    = "Distributed/Parallel Computing — infra 研究核心"
+active   = false
+notes    = "Distributed/Parallel Computing — infra 研究核心；2026-05-07 暂停 fetch"
 
 [[source]]
 name     = "arXiv cs.AR"
@@ -140,8 +140,8 @@ tier     = "T2"
 category = "research"
 url      = "https://export.arxiv.org/rss/cs.AR"
 fetcher  = "rss"
-active   = true
-notes    = "Hardware Architecture — 关心硬件方向时打开"
+active   = false
+notes    = "Hardware Architecture — 关心硬件方向时打开；2026-05-07 暂停 fetch"
 
 # ================================
 # T2 — 研究博主 (4)
@@ -178,6 +178,15 @@ category = "kol"
 url      = "https://huyenchip.com/feed.xml"
 fetcher  = "rss"
 active   = true
+
+[[source]]
+name     = "阮一峰 / 网络日志"
+tier     = "T2"
+category = "kol"
+url      = "http://www.ruanyifeng.com/blog/atom.xml"
+fetcher  = "rss"
+active   = true
+notes    = "阮一峰科技爱好者周刊 / 长期更新, 国内技术博客元老"
 
 # ================================
 # T1 — 经济 / 思辨 (3)
@@ -433,19 +442,19 @@ active   = false
 name     = "公众号 / 极客公园"
 tier     = "T1.5"
 category = "media"
-url      = "https://wechat2rss.bestblogs.dev/feed/11ea7163fbea99e2ab9fa2812ac3d179574886cc.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_1304308441"
+fetcher  = "weread"
 active   = true
-notes    = "AI/科技综合媒体; 走 wechat2rss.bestblogs.dev"
+notes    = "AI/科技综合媒体; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 数字生命卡兹克"
 tier     = "T1.5"
 category = "kol"
-url      = "https://wechat2rss.bestblogs.dev/feed/ff621c3e98d6ae6fceb3397e57441ffc6ea3c17f.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_3223096120"
+fetcher  = "weread"
 active   = true
-notes    = "AIHOT 项目作者本人的公众号, 本项目灵感来源 ✨"
+notes    = "AIHOT 项目作者本人的公众号, 本项目灵感来源 ✨; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "量子位 (官方原生 RSS)"
@@ -561,10 +570,10 @@ notes    = "国内 AI 媒体头部; 模型发布 / 产品发布 / 行业经济 �
 name     = "公众号 / AI寒武纪"
 tier     = "T1.5"
 category = "kol"
-url      = "https://wechat2rss.bestblogs.dev/feed/5903009f48a5e4aa44d8ac941a54fe3aafc3e03c.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_3871912638"
+fetcher  = "weread"
 active   = true
-notes    = "AI 行业综合评论; 走 wechat2rss.bestblogs.dev"
+notes    = "AI 行业综合评论; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 青稞AI"
@@ -588,10 +597,10 @@ notes    = "未知风格; wechat2rss 列表暂未收录, 可去 https://github.c
 name     = "公众号 / InfoQ 中文"
 tier     = "T1.5"
 category = "media"
-url      = "https://wechat2rss.bestblogs.dev/feed/13da94d7eb314b49fa251cb7e8399cae29d772db.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_2390142780"
+fetcher  = "weread"
 active   = true
-notes    = "综合技术媒体, 含 AI 专栏; 行业经济 / infra工程 混杂; 走 wechat2rss.bestblogs.dev"
+notes    = "综合技术媒体, 含 AI 专栏; 行业经济 / infra工程 混杂; 走 WeRead cookie + /web/mp/articles"
 
 # ---- infra / 工程 ----
 
@@ -599,19 +608,19 @@ notes    = "综合技术媒体, 含 AI 专栏; 行业经济 / infra工程 混杂
 name     = "公众号 / 字节跳动技术团队"
 tier     = "T1.5"
 category = "media"
-url      = "https://wechat2rss.xlab.app/feed/4025ea55575daf8bfd8227e68b28d9638b073267.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_3253632141"
+fetcher  = "weread"
 active   = true
-notes    = "字节工程博客中文版; infra工程 / 模型发布; 走 wechat2rss.xlab.app"
+notes    = "字节工程博客中文版; infra工程 / 模型发布; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 腾讯云开发者"
 tier     = "T1.5"
 category = "media"
-url      = "https://wechat2rss.bestblogs.dev/feed/6cec2c211479a5502896375860009782cf10c2ba.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_3264589119"
+fetcher  = "weread"
 active   = true
-notes    = "腾讯云技术博客; 走 wechat2rss.bestblogs.dev"
+notes    = "腾讯云技术博客; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 阿里云开发者"
@@ -626,10 +635,10 @@ notes    = "阿里云技术博客; 走 wechat2rss.xlab.app"
 name     = "公众号 / 腾讯技术工程"
 tier     = "T1.5"
 category = "media"
-url      = "https://wechat2rss.xlab.app/feed/9685937b45fe9c7a526dbc32e4f24ba879a65b9a.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_2398602260"
+fetcher  = "weread"
 active   = true
-notes    = "腾讯综合技术博客; 走 wechat2rss.xlab.app"
+notes    = "腾讯综合技术博客; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 工程芯一"
@@ -693,19 +702,19 @@ notes    = "早期投资分析; 行业经济; 走 wechat2rss.xlab.app"
 name     = "公众号 / 歸藏的AI工具箱"
 tier     = "T1.5"
 category = "kol"
-url      = "https://wechat2rss.bestblogs.dev/feed/1c3e3571b1627d23ee9c64521a0b0a41d3fe2987.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_3540975510"
+fetcher  = "weread"
 active   = true
-notes    = "AI 工具/产品评测 + 技巧与观点; 走 wechat2rss.bestblogs.dev"
+notes    = "AI 工具/产品评测 + 技巧与观点; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 赛博禅心"
 tier     = "T1.5"
 category = "kol"
-url      = "https://wechat2rss.bestblogs.dev/feed/752c31ca0446b837339463fc5440539e20267d2f.xml"
-fetcher  = "rss"
+url      = "weread://book/MP_WXS_3934419561"
+fetcher  = "weread"
 active   = true
-notes    = "AI 思辨 / 技巧与观点 风味浓厚; 走 wechat2rss.bestblogs.dev"
+notes    = "AI 思辨 / 技巧与观点 风味浓厚; 走 WeRead cookie + /web/mp/articles"
 
 [[source]]
 name     = "公众号 / 泥巴青年"
@@ -1004,3 +1013,26 @@ url      = "http://127.0.0.1:41200/zhihu/people/activities/zhang-xiao-yu-45-67-7
 fetcher  = "rss"
 active   = true
 notes    = "GiantPandaCV / OneFlow / PyTorch 推理优化"
+
+# ============================================================================
+# AI HOT (本项目灵感来源, 数字生命卡兹克的精选 / 日报站)
+# 站点 https://aihot.virxact.com — 自带原生 RSS, 直接走 rss fetcher.
+# ============================================================================
+
+[[source]]
+name     = "AI HOT — 精选"
+tier     = "T1.5"
+category = "media"
+url      = "https://aihot.virxact.com/feed.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AIHOT 站点的逐条精选流 (item-level), 模型 / 产品 / 论文 / 行业混合; 本项目灵感来源"
+
+[[source]]
+name     = "AI HOT — 日报"
+tier     = "T1.5"
+category = "media"
+url      = "https://aihot.virxact.com/feed/daily.xml"
+fetcher  = "rss"
+active   = true
+notes    = "AIHOT 每天 08:00 北京时间一条日报; 链接到 https://aihot.virxact.com/daily/<date>"
