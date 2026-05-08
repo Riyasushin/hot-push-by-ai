@@ -101,6 +101,7 @@ _POST_MIGRATION_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_scores_is_selected ON scores(is_selected, total DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_unique ON feedback(item_id, signal);
 CREATE INDEX IF NOT EXISTS idx_items_dedup_key   ON items(dedup_key);
+CREATE INDEX IF NOT EXISTS idx_items_claim       ON items(claim_owner, claim_at);
 """
 
 # Per-table column migrations (idempotent).
@@ -113,6 +114,12 @@ _ITEMS_MIGRATIONS = [
     # but we want to show the article once. Computed from title via
     # `_compute_dedup_key`. NULL means "no dedup needed" (uses url uniqueness).
     ("dedup_key", "TEXT"),
+    # 2026-05-08: claim_owner / claim_at — multi-consumer pending dedup. The
+    # prefilter / score steps atomically grab a batch via UPDATE...RETURNING
+    # so two concurrent `radar prefilter` (or `radar score`) runs never read
+    # the same id. See claim_pending_for_* below.
+    ("claim_owner", "TEXT"),
+    ("claim_at", "TIMESTAMP"),
 ]
 
 
@@ -502,6 +509,165 @@ def fetch_health(conn: sqlite3.Connection) -> dict:
     }
 
 
+# ---------- claims (multi-consumer pending dedup) ----------
+#
+# Two `radar prefilter` (or `radar score`) processes running at once would
+# otherwise both SELECT the same NULL/unscored rows → 2× LLM spend. The fix
+# is to make the "pick a batch" step itself a write: UPDATE...RETURNING
+# atomically tags rows with the caller's owner UUID before returning them.
+# Concurrent callers serialise on SQLite's writer lock; each one walks away
+# with a disjoint batch.
+#
+# Stale claims (caller crashed, machine rebooted) are reaped at the start of
+# every run via release_stale_claims(); the threshold is RADAR_CLAIM_STALE_MINUTES
+# (CLI default 60).
+
+_PREFILTER_CLAIM_SQL = """
+UPDATE items
+   SET claim_owner = ?, claim_at = CURRENT_TIMESTAMP
+ WHERE id IN (
+       SELECT id FROM items
+        WHERE is_ai_related IS NULL
+          AND (claim_owner IS NULL OR claim_at < datetime('now', ?))
+        ORDER BY fetched_at DESC
+        LIMIT ?
+ )
+RETURNING id
+"""
+
+_SCORE_CLAIM_SQL = """
+UPDATE items
+   SET claim_owner = ?, claim_at = CURRENT_TIMESTAMP
+ WHERE id IN (
+       SELECT i.id FROM items i
+        WHERE i.is_ai_related = 1
+          AND NOT EXISTS (SELECT 1 FROM scores sc WHERE sc.item_id = i.id)
+          AND (i.claim_owner IS NULL OR i.claim_at < datetime('now', ?))
+        ORDER BY i.fetched_at DESC
+        LIMIT ?
+ )
+RETURNING id
+"""
+
+
+def claim_pending_for_prefilter(
+    conn: sqlite3.Connection,
+    *,
+    owner: str,
+    limit: int,
+    stale_minutes: int = 60,
+) -> list[sqlite3.Row]:
+    """Atomically claim up to N pending-prefilter items for ``owner``.
+
+    Returns the same shape as the historical SELECT in pipeline/prefilter._load_pending
+    (id, title, summary, source name) for the rows we won the race on.
+    """
+    cutoff = f"-{int(stale_minutes)} minutes"
+    ids = [r["id"] for r in conn.execute(
+        _PREFILTER_CLAIM_SQL, (owner, cutoff, int(limit))
+    ).fetchall()]
+    if not ids:
+        return []
+    placeholders = ",".join("?" * len(ids))
+    return conn.execute(
+        f"SELECT i.id, i.title, COALESCE(i.summary, '') AS summary, "
+        f"       s.name AS source "
+        f"FROM items i JOIN sources s ON s.id = i.source_id "
+        f"WHERE i.id IN ({placeholders}) "
+        f"ORDER BY i.fetched_at DESC",
+        ids,
+    ).fetchall()
+
+
+def claim_pending_for_scoring(
+    conn: sqlite3.Connection,
+    *,
+    owner: str,
+    limit: int,
+    stale_minutes: int = 60,
+) -> list[sqlite3.Row]:
+    """Atomically claim up to N pending-scoring items for ``owner``."""
+    cutoff = f"-{int(stale_minutes)} minutes"
+    ids = [r["id"] for r in conn.execute(
+        _SCORE_CLAIM_SQL, (owner, cutoff, int(limit))
+    ).fetchall()]
+    if not ids:
+        return []
+    placeholders = ",".join("?" * len(ids))
+    return conn.execute(
+        f"SELECT i.id, i.title, COALESCE(i.summary, '') AS summary, "
+        f"       s.name AS source_name, s.tier AS source_tier, "
+        f"       s.category AS source_category "
+        f"FROM items i JOIN sources s ON s.id = i.source_id "
+        f"WHERE i.id IN ({placeholders}) "
+        f"ORDER BY i.fetched_at DESC",
+        ids,
+    ).fetchall()
+
+
+def release_claim(
+    conn: sqlite3.Connection, *, item_ids: list[int], owner: str,
+) -> None:
+    """Drop our claim on these ids — only if we still own them.
+
+    The owner-match guards against a stale-sweep having already given the
+    rows away to another worker; in that case we mustn't yank them back.
+    """
+    if not item_ids:
+        return
+    placeholders = ",".join("?" * len(item_ids))
+    conn.execute(
+        f"UPDATE items SET claim_owner = NULL, claim_at = NULL "
+        f"WHERE id IN ({placeholders}) AND claim_owner = ?",
+        (*item_ids, owner),
+    )
+
+
+def release_stale_claims(
+    conn: sqlite3.Connection, *, max_age_minutes: int,
+) -> int:
+    """Reap claims older than the threshold (caller crashed / machine died).
+
+    Returns count of reclaimed rows. Cheap (idx_items_claim covers it).
+    """
+    cutoff = f"-{int(max_age_minutes)} minutes"
+    cur = conn.execute(
+        "UPDATE items SET claim_owner = NULL, claim_at = NULL "
+        "WHERE claim_at IS NOT NULL AND claim_at < datetime('now', ?)",
+        (cutoff,),
+    )
+    return cur.rowcount or 0
+
+
+def items_still_pending_prefilter(
+    conn: sqlite3.Connection, *, item_ids: list[int],
+) -> list[int]:
+    """Subset of ids that still haven't been classified (is_ai_related IS NULL)."""
+    if not item_ids:
+        return []
+    placeholders = ",".join("?" * len(item_ids))
+    return [r["id"] for r in conn.execute(
+        f"SELECT id FROM items "
+        f"WHERE id IN ({placeholders}) AND is_ai_related IS NULL",
+        item_ids,
+    ).fetchall()]
+
+
+def items_still_pending_scoring(
+    conn: sqlite3.Connection, *, item_ids: list[int],
+) -> list[int]:
+    """Subset of ids that still don't have a scores row."""
+    if not item_ids:
+        return []
+    placeholders = ",".join("?" * len(item_ids))
+    return [r["id"] for r in conn.execute(
+        f"SELECT i.id FROM items i "
+        f"WHERE i.id IN ({placeholders}) "
+        f"  AND NOT EXISTS (SELECT 1 FROM scores sc WHERE sc.item_id = i.id)",
+        item_ids,
+    ).fetchall()]
+
+
 # ---------- scores ----------
 
 def pending_for_scoring(
@@ -511,11 +677,8 @@ def pending_for_scoring(
 ) -> list[sqlite3.Row]:
     """Items that passed the AI prefilter and have not been scored yet.
 
-    TODO(multi-consumer): Two parallel ``radar score`` runs both call this
-    and pick up overlapping rows → wasted LLM calls (no data corruption,
-    upsert_score handles ON CONFLICT). Fix when needed: ``items`` adds
-    ``claim_owner / claim_at`` columns + atomic UPDATE...RETURNING here.
-    See notes/TODO.md.
+    Read-only — used by stats / web views. The pipeline itself uses
+    ``claim_pending_for_scoring`` so concurrent runs don't double-process.
     """
     sql = (
         "SELECT i.id, i.title, COALESCE(i.summary, '') AS summary, "

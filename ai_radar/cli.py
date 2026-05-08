@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 
 import time
@@ -32,6 +33,23 @@ load_dotenv()
 
 app = typer.Typer(help="ai-radar — personal AI/econ news aggregator", no_args_is_help=True)
 console = Console()
+
+
+def _stale_minutes() -> int:
+    """RADAR_CLAIM_STALE_MINUTES — how long a claim can sit before another worker reaps it.
+
+    Default 60 covers a worst-case `radar score --limit 200` (~10–20min) plus
+    headroom; bump to 180+ for very long catch-up runs so an in-flight worker
+    isn't pre-empted mid-batch.
+    """
+    raw = os.environ.get("RADAR_CLAIM_STALE_MINUTES")
+    if not raw:
+        return 60
+    try:
+        v = int(raw)
+    except ValueError:
+        return 60
+    return max(1, v)
 
 
 def _progress_bar(label: str) -> Progress:
@@ -159,7 +177,7 @@ def prefilter(
                 bar.update(task, advance=1,
                            status=f"✓ #{i} ok · cum {cum['classified']} classified")
 
-        stats = pf.run(conn, limit=limit, on_batch=on_batch)
+        stats = pf.run(conn, limit=limit, on_batch=on_batch, stale_minutes=_stale_minutes())
 
     console.print(f"[bold]prefilter done[/]")
     console.print(f"  pending requested:    {stats['pending']}")
@@ -246,7 +264,7 @@ def score(
                 bar.update(task, advance=1,
                            status=f"✓ #{i} +{outcome.written} (cum {cum['scored']}) — {head}")
 
-        stats = scorer.run(conn, limit=limit, on_batch=on_batch)
+        stats = scorer.run(conn, limit=limit, on_batch=on_batch, stale_minutes=_stale_minutes())
 
     console.print(f"[bold]scoring done[/]  model={stats['model']}")
     console.print(f"  pending requested: {stats['pending']}")
@@ -379,6 +397,7 @@ def serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind address. Use 0.0.0.0 to expose on LAN."),
     port: int = typer.Option(8000, "--port", "-p", help="TCP port to listen on."),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev only)."),
+    root_path: str = typer.Option("", "--root-path", help="ASGI root_path when behind a reverse proxy that strips a prefix (e.g. /aihot)."),
 ) -> None:
     """Launch the FastAPI web app via uvicorn.
 
@@ -392,12 +411,13 @@ def serve(
 
     \b
     Examples:
-      radar serve                                 # 127.0.0.1:8000 (本机)
-      radar serve --host 0.0.0.0 --port 18086     # LAN, 偏远端口
-      radar serve --reload                        # dev: 改代码自动 restart
+      radar serve                                            # 127.0.0.1:8000 (本机)
+      radar serve --host 0.0.0.0 --port 18086                # LAN, 偏远端口
+      radar serve --reload                                   # dev: 改代码自动 restart
+      radar serve --root-path /aihot                         # 挂在反代子路径下 (Caddy handle_path /aihot/*)
     """
     import uvicorn
-    uvicorn.run("ai_radar.web.app:app", host=host, port=port, reload=reload)
+    uvicorn.run("ai_radar.web.app:app", host=host, port=port, reload=reload, root_path=root_path)
 
 
 @app.command()

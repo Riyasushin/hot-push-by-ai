@@ -76,22 +76,42 @@ class Scorer(BatchedLLMStep):
     def _load_pending(
         self, conn: sqlite3.Connection, *, limit: int | None
     ) -> list[PendingItem]:
+        """Read-only preview — drives the progress-bar total. Claim happens in _claim_batch."""
         rows = db.pending_for_scoring(conn, limit=limit)
-        return [
-            PendingItem(
-                id=r["id"],
-                title=(r["title"] or "").strip(),
-                summary=_intro_outro(
-                    r["summary"] or "",
-                    intro_chars=SCORE_INTRO_CHARS,
-                    outro_chars=SCORE_OUTRO_CHARS,
-                ),
-                source_name=r["source_name"],
-                source_tier=r["source_tier"],
-                source_category=r["source_category"],
-            )
-            for r in rows
-        ]
+        return [self._row_to_item(r) for r in rows]
+
+    def _claim_batch(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        owner: str,
+        limit: int,
+        stale_minutes: int,
+    ) -> list[PendingItem]:
+        rows = db.claim_pending_for_scoring(
+            conn, owner=owner, limit=limit, stale_minutes=stale_minutes,
+        )
+        return [self._row_to_item(r) for r in rows]
+
+    def _unfinished_ids(
+        self, conn: sqlite3.Connection, claimed_ids: list[int],
+    ) -> list[int]:
+        return db.items_still_pending_scoring(conn, item_ids=claimed_ids)
+
+    @staticmethod
+    def _row_to_item(r) -> "PendingItem":
+        return PendingItem(
+            id=r["id"],
+            title=(r["title"] or "").strip(),
+            summary=_intro_outro(
+                r["summary"] or "",
+                intro_chars=SCORE_INTRO_CHARS,
+                outro_chars=SCORE_OUTRO_CHARS,
+            ),
+            source_name=r["source_name"],
+            source_tier=r["source_tier"],
+            source_category=r["source_category"],
+        )
 
     def _build_prompt_items(self, batch: list[PendingItem]) -> list[dict]:
         return [

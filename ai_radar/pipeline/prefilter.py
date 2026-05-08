@@ -26,6 +26,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_radar import db
 from ai_radar.pipeline._batch_llm import BatchedLLMStep
 from ai_radar.pipeline._llm import KimiCLIBackend, LLMBackend
 
@@ -129,10 +130,7 @@ class Prefilter(BatchedLLMStep):
     def _load_pending(
         self, conn: sqlite3.Connection, *, limit: int | None
     ) -> list[PendingItem]:
-        # TODO(multi-consumer): two parallel ``radar prefilter`` would each
-        # pick up overlapping NULL rows. Wastes kimi-cli calls (free) but no
-        # data corruption (UPDATE is_ai_related is idempotent). Fix via claim
-        # columns when first multi-cron schedule is set up. See notes/TODO.md.
+        """Read-only preview — drives the progress-bar total. Claim happens in _claim_batch."""
         sql = (
             "SELECT i.id, i.title, COALESCE(i.summary, '') AS summary, "
             "       s.name AS source "
@@ -145,15 +143,34 @@ class Prefilter(BatchedLLMStep):
             sql += " LIMIT ?"
             params.append(int(limit))
         cur = conn.execute(sql, params)
-        return [
-            PendingItem(
-                id=r["id"],
-                title=(r["title"] or "").strip(),
-                summary=_intro_outro(r["summary"] or ""),
-                source=r["source"],
-            )
-            for r in cur.fetchall()
-        ]
+        return [self._row_to_item(r) for r in cur.fetchall()]
+
+    def _claim_batch(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        owner: str,
+        limit: int,
+        stale_minutes: int,
+    ) -> list[PendingItem]:
+        rows = db.claim_pending_for_prefilter(
+            conn, owner=owner, limit=limit, stale_minutes=stale_minutes,
+        )
+        return [self._row_to_item(r) for r in rows]
+
+    def _unfinished_ids(
+        self, conn: sqlite3.Connection, claimed_ids: list[int],
+    ) -> list[int]:
+        return db.items_still_pending_prefilter(conn, item_ids=claimed_ids)
+
+    @staticmethod
+    def _row_to_item(r) -> "PendingItem":
+        return PendingItem(
+            id=r["id"],
+            title=(r["title"] or "").strip(),
+            summary=_intro_outro(r["summary"] or ""),
+            source=r["source"],
+        )
 
     def _build_prompt_items(self, batch: list[PendingItem]) -> list[dict]:
         return [

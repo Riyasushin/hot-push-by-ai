@@ -2,45 +2,29 @@
 
 > 临时积压点，做完就划掉/删除。这是开发节奏自留笔记，不当 docs 用.
 
-## 🟡 多消费者锁：score / prefilter 并发去重
+## 🔴 arxiv 信息源处理：当前 inactive, 等专用 fetcher
 
-**触发场景**：用户同时在两个 tmux 跑 `radar score --backend kimi`，或者 cron 跑 score 的同时手动也跑了一次。两个消费者会读到同一批 `pending_for_scoring()`、各自调一遍 LLM、`upsert_score` 后写入同一行（PK on item_id, ON CONFLICT UPDATE → 第二次写覆盖第一次）。**数据没坏，但 LLM 配额浪费一倍**。
+**触发场景**：2026-05-07 用户决策：arxiv 三个 cs.LG / cs.DC / cs.AR RSS 噪声 vs 价值不划算，
+关掉 active 标志暂停 fetch；同时清掉 DB 里 248 条不符合 (AI/Agent/RL infra) AND (知名公司 / 顶尖学校) 的旧 item。
 
-**生产者/消费者建模**：
-- 生产者: `radar fetch` (单例, 已有 fcntl flock)
-- 消费者: `prefilter` 消费 `is_ai_related IS NULL`、`score` 消费 `is_ai_related=1 AND NOT IN scores`
-- 多消费者之间**任务集合不应重叠**
+**Why**：
+- arxiv RSS 量大 (cs.LG 单日 100+)，**绝大多数与 AI infra 无关** (应用 ML/医疗/气候/纯数学)
+- 现有 prefilter + score 只看主题不看机构，烧 LLM 配额收效甚微
+- 当前 17 条幸存 = 真正想看的 (infra + 顶级出品), 是想要的目标分布
 
-**实现方向（任选其一）**：
+**重启 arxiv 的前提条件**：写一个专用 arxiv fetcher (不走通用 RSS)
+- 多一道**机构白名单过滤** (只放行 affiliation ∈ 知名公司/顶尖学校)
+  - 抓 abstract page 的 author affiliation 列表 (arxiv API 给得到)
+  - 白名单见 `scripts/cleanup_arxiv.py` 的 PROMPT
+- 多一道**主题硬约束** (cs.DC/cs.AR + 标题关键词白名单 [infra/training/inference/serving/kernel/compiler/scheduler/...])
+- prefilter / score 阶段无需改
 
-1. **简单 flock**（5 分钟见效）
-   - `radar score` / `radar prefilter` 启动各自抢 `data/.score.lock` / `.prefilter.lock`
-   - 没抢到就退出（"another <step> is running, skipping"）
-   - 缺点：禁止任何并发，连不同 LIMIT 也不能并行
+**markers**：
+- `sources.toml`: 三个 arXiv 源 active=false
+- `scripts/cleanup_arxiv.py`: 一次性清理脚本 (含机构 + 主题白名单, 可作未来 fetcher 的 spec)
+- DESIGN.md: Step 5.c 提到 "arXiv 摘要专用 fetcher"
 
-2. **claim columns**（半小时见效, 推荐）
-   - items 加 `claim_owner TEXT` + `claim_at TIMESTAMP`
-   - 启动时给自己生成一个 owner UUID
-   - 每批用一条原子 UPDATE 抢 N 条:
-     ```sql
-     UPDATE items SET claim_owner=?, claim_at=CURRENT_TIMESTAMP
-     WHERE id IN (
-       SELECT id FROM items
-       WHERE is_ai_related IS NULL AND claim_owner IS NULL
-       LIMIT ?
-     ) RETURNING id
-     ```
-   - 处理完写 score/is_ai_related 后清 claim
-   - 启动时回收 stale claim (`claim_at < now - 1 hour`)
-   - 优点：天然支持多消费者并发，每个消费者拿不同行
-   - 兼容 SQLite（`UPDATE ... RETURNING` 在 3.35+ 支持）
-
-**优先级**：低。当前一个人跑，碰不到。等真的开始多 cron 或 distributed 再做。
-
-**Markers in code**：
-- `ai_radar/db.py::pending_for_scoring`
-- `ai_radar/db.py` prefilter pending 查询
-- `ai_radar/pipeline/_batch_llm.py::run`
+**优先级**：中. 暂停期间不烧成本 = 不急. 重启时一并写 fetcher.
 
 ---
 

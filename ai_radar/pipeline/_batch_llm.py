@@ -25,12 +25,16 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import socket
 import sqlite3
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_radar import db
 from ai_radar.pipeline._llm import LLMBackend, extract_json
 
 log = logging.getLogger(__name__)
@@ -70,31 +74,69 @@ class BatchedLLMStep(ABC):
         *,
         limit: int | None = None,
         on_batch=None,  # callable(batch_index, total_batches, outcome, batch) -> None
+        stale_minutes: int = 60,
     ) -> dict:
-        pending = self._load_pending(conn, limit=limit)
-        stats = self._build_stats(pending)
-        if not pending:
-            return stats
+        # Multi-consumer dedup: rather than SELECTing the whole pending set up
+        # front (two concurrent runs would race on the same ids), we claim a
+        # batch at a time via UPDATE...RETURNING — see ai_radar.db helpers.
+        owner = _owner_uuid()
+        db.release_stale_claims(conn, max_age_minutes=stale_minutes)
 
-        batches = list(_chunks(pending, self.batch_size))
-        total = len(batches)
-        for i, batch in enumerate(batches, start=1):
-            outcome = self._process_batch(conn, batch)
-            if outcome.failed:
-                stats["batches_failed"] += 1
-                stats["errors"].append(outcome.error)
-            else:
-                stats["batches_ok"] += 1
-            stats.setdefault("written", 0)
-            stats["written"] += outcome.written
-            if on_batch is not None:
-                try:
-                    on_batch(i, total, outcome, batch)
-                except Exception:
-                    # Callback errors must never break the pipeline.
-                    pass
+        # `total` for the progress bar is unknown ahead of time when we claim
+        # incrementally; use the up-front pending count as an upper bound, and
+        # let the callback advance batch-by-batch. _load_pending stays around
+        # for this and for stats reporting; it does NOT drive batch dispatch.
+        pending_preview = self._load_pending(conn, limit=limit)
+        stats = self._build_stats(pending_preview)
+        if not pending_preview:
+            return self._finalize_stats(conn, stats, pending_preview)
 
-        return self._finalize_stats(conn, stats, pending)
+        approx_total_batches = max(1, (len(pending_preview) + self.batch_size - 1) // self.batch_size)
+
+        claimed_ids: list[int] = []
+        processed_batches: list[list] = []
+        remaining = limit
+        i = 0
+        try:
+            while remaining is None or remaining > 0:
+                want = self.batch_size
+                if remaining is not None:
+                    want = min(want, remaining)
+                batch = self._claim_batch(
+                    conn, owner=owner, limit=want, stale_minutes=stale_minutes,
+                )
+                if not batch:
+                    break
+                i += 1
+                claimed_ids.extend(it.id for it in batch)
+                processed_batches.append(batch)
+
+                outcome = self._process_batch(conn, batch)
+                if outcome.failed:
+                    stats["batches_failed"] += 1
+                    stats["errors"].append(outcome.error)
+                else:
+                    stats["batches_ok"] += 1
+                stats.setdefault("written", 0)
+                stats["written"] += outcome.written
+                if on_batch is not None:
+                    try:
+                        on_batch(i, max(approx_total_batches, i), outcome, batch)
+                    except Exception:
+                        # Callback errors must never break the pipeline.
+                        pass
+
+                if remaining is not None:
+                    remaining -= len(batch)
+        finally:
+            unfinished = self._unfinished_ids(conn, claimed_ids)
+            if unfinished:
+                db.release_claim(conn, item_ids=unfinished, owner=owner)
+
+        # Hand finalize_stats the items we actually saw, not the up-front
+        # preview (which can include rows another worker grabbed first).
+        seen = [it for batch in processed_batches for it in batch]
+        return self._finalize_stats(conn, stats, seen or pending_preview)
 
     def _process_batch(
         self, conn: sqlite3.Connection, batch: list
@@ -153,7 +195,37 @@ class BatchedLLMStep(ABC):
 
     @abstractmethod
     def _load_pending(self, conn: sqlite3.Connection, *, limit: int | None) -> list:
-        ...
+        """Read-only preview of pending items — used for stats / progress total.
+
+        The actual batch dispatch goes through ``_claim_batch`` so that two
+        concurrent workers don't race on the same rows.
+        """
+
+    @abstractmethod
+    def _claim_batch(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        owner: str,
+        limit: int,
+        stale_minutes: int,
+    ) -> list:
+        """Atomically claim and return up to ``limit`` pending items for ``owner``.
+
+        Implementations call the matching ``ai_radar.db.claim_pending_for_*``
+        helper. Returns ``[]`` when nothing's left to claim.
+        """
+
+    @abstractmethod
+    def _unfinished_ids(
+        self, conn: sqlite3.Connection, claimed_ids: list[int],
+    ) -> list[int]:
+        """Subset of ``claimed_ids`` whose business column is still unwritten.
+
+        Called from ``run()``'s ``finally`` to release claims we didn't manage
+        to process — so a sibling worker (or next run) can pick them up
+        immediately, without waiting on the stale-claim sweep.
+        """
 
     @abstractmethod
     def _build_prompt_items(self, batch: list) -> list[dict]:
@@ -178,3 +250,12 @@ class BatchedLLMStep(ABC):
 def _chunks(seq: list, n: int):
     for i in range(0, len(seq), n):
         yield seq[i:i + n]
+
+
+def _owner_uuid() -> str:
+    """Per-process claim owner — host/pid/short-uuid for grep-friendly debug.
+
+    Example: ``laptop/40213/9c1ea2b7``. Lets you eyeball which terminal grabbed
+    a row when poking at the DB.
+    """
+    return f"{socket.gethostname()}/{os.getpid()}/{uuid.uuid4().hex[:8]}"
