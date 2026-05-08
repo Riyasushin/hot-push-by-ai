@@ -4,10 +4,11 @@
 <h1 class="view-title">{{ view }}</h1>
 
 {% if nav %}
+  {%- set rp = request.scope.root_path -%}
   <nav class="daily-nav">
     <label class="dim" for="daily-date">日期：</label>
     <select id="daily-date" class="daily-date-select"
-            onchange="if(this.value) location.href='/daily/' + this.value">
+            onchange="if(this.value) location.href='{{ rp }}/daily/' + this.value">
       {% if nav.available|length == 0 %}
         <option value="">（最近两周没有精选条目）</option>
       {% else %}
@@ -19,12 +20,12 @@
       {% endif %}
     </select>
     {% if nav.newer %}
-      <a class="daily-step" href="/daily/{{ nav.newer }}" title="更新一天">‹</a>
+      <a class="daily-step" href="{{ rp }}/daily/{{ nav.newer }}" title="更新一天">‹</a>
     {% else %}
       <span class="daily-step dim">‹</span>
     {% endif %}
     {% if nav.older %}
-      <a class="daily-step" href="/daily/{{ nav.older }}" title="更旧一天">›</a>
+      <a class="daily-step" href="{{ rp }}/daily/{{ nav.older }}" title="更旧一天">›</a>
     {% else %}
       <span class="daily-step dim">›</span>
     {% endif %}

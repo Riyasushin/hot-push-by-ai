@@ -8,18 +8,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ai-radar">
   <title>ai-radar · {{ view }}</title>
-  <link rel="stylesheet" href="/static/style.css">
+  {%- set rp = request.scope.root_path -%}
+  <link rel="stylesheet" href="{{ rp }}/static/style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">ai-radar</div>
     <nav>
-      <a href="/" class="{{ 'active' if view_key == 'home' else '' }}">精选</a>
-      <a href="/all" class="{{ 'active' if view_key == 'all' else '' }}">全部</a>
-      <a href="/daily" class="{{ 'active' if view_key == 'daily' else '' }}">日报</a>
+      <a href="{{ rp }}/" class="{{ 'active' if view_key == 'home' else '' }}">精选</a>
+      <a href="{{ rp }}/all" class="{{ 'active' if view_key == 'all' else '' }}">全部</a>
+      <a href="{{ rp }}/daily" class="{{ 'active' if view_key == 'daily' else '' }}">日报</a>
       <span class="sep">·</span>
       {% for c in categories %}
-        <a href="/category/{{ c }}"
+        <a href="{{ rp }}/category/{{ c }}"
            class="cat {{ 'active' if view_key == 'cat:' + c else '' }}">{{ c }}</a>
       {% endfor %}
     </nav>
@@ -69,10 +70,11 @@
     // Response: { active: bool, cleared_opposite: bool }. Updates local
     // button state without page reload. Mutual exclusion (👍↔👎) is mirrored
     // in the UI.
+    window.ROOT_PATH = "{{ request.scope.root_path }}";
     function sendFeedback(itemId, signal, btn) {
       const fd = new FormData();
       fd.append('signal', signal);
-      fetch('/feedback/' + itemId, { method: 'POST', body: fd })
+      fetch(window.ROOT_PATH + '/feedback/' + itemId, { method: 'POST', body: fd })
         .then(r => r.json())
         .then(resp => {
           btn.classList.toggle('active', resp.active);

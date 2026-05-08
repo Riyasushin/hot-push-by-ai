@@ -6,7 +6,7 @@
 {% if items|length == 0 %}
   <div class="empty">
     没有条目。可能你刚跑完 fetch / score / weight，但还没有过阈值的精选。
-    <br>试试 <a href="/all">/all</a>（看全部已评分）或调一下 <code>weights.toml</code> 的阈值。
+    <br>试试 <a href="{{ request.scope.root_path }}/all">/all</a>（看全部已评分）或调一下 <code>weights.toml</code> 的阈值。
   </div>
 {% else %}
   <ul class="cards">

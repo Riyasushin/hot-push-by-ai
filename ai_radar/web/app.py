@@ -136,7 +136,8 @@ def create_app() -> FastAPI:
         with closing(_conn()) as c:
             dates = db.daily_dates_with_content(c, days=14)
         target = dates[0] if dates else datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        return RedirectResponse(url=f"/daily/{target}", status_code=302)
+        # url_for prepends root_path so this works under Caddy /aihot/* too.
+        return RedirectResponse(url=str(request.url_for("daily_date", date=target)), status_code=302)
 
     @app.get("/daily/{date}", response_class=HTMLResponse)
     def daily_date(request: Request, date: str):
