@@ -20,7 +20,7 @@
 
 services:
   rsshub:
-    image: diygod/rsshub:latest
+    image: diygod/rsshub:chromium-bundled
     container_name: ai-radar-rsshub
     restart: unless-stopped
     # Bind to an unusual high port (less collision with common dev ports
