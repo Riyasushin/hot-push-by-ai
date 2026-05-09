@@ -56,7 +56,12 @@ active   = true
 > ```bash
 > docker compose -f infra/rsshub.docker-compose.yml up -d
 > # 知乎登录态填 ZHIHU_COOKIES (zhihu.com → DevTools Cookies → 复制 z_c0/d_c0/_xsrf 等)
+> # B 站填 BILIBILI_COOKIE_<UID>=SESSDATA=... (bilibili.com → SESSDATA cookie)
 > ```
+>
+> **镜像变体**：compose 文件里写的是 `diygod/rsshub:chromium-bundled`，**不是** `:latest`。`/bilibili/*` 路由要 spawn headless Chromium 过 WBI 风控，slim 镜像没浏览器会 503。换 `:latest` 会让 B 站源全挂。
+>
+> **B 站还需要 cookie**：仅有 chromium 还不够，B 站会下发 `-352 风控校验失败`。必须在 `infra/rsshub.env` 配 `BILIBILI_COOKIE_<your-uid>=SESSDATA=<value>`，重建容器才生效。
 >
 > sources.toml 里所有 `rsshub.app` URL 都改成 `http://127.0.0.1:41200`；批量替换可跑 `bash scripts/rsshub-rewrite.sh` (支持 `--activate`)。
 

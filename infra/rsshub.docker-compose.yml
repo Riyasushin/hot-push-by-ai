@@ -20,6 +20,10 @@
 
 services:
   rsshub:
+    # chromium-bundled (not :latest) — /bilibili/* routes spawn a headless
+    # Chromium to bypass B 站 WBI 风控. :latest is slim Debian without browser
+    # → 503 "Executable doesn't exist". chromium-bundled adds ~300MB but is
+    # the only DIYgod-supported way to keep B 站 routes working.
     image: diygod/rsshub:chromium-bundled
     container_name: ai-radar-rsshub
     restart: unless-stopped
@@ -39,7 +43,7 @@ services:
       LOGGER_LEVEL: info
     depends_on:
       - rsshub-redis
-    # diygod/rsshub uses node:alpine which has no wget/curl. Use node itself
+    # diygod/rsshub is debian-bookworm but has no wget/curl. Use node itself
     # to probe the local port — works without adding dependencies.
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:1200/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
