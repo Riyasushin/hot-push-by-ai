@@ -1045,3 +1045,139 @@ url      = "https://aihot.virxact.com/feed/daily.xml"
 fetcher  = "rss"
 active   = true
 notes    = "AIHOT 每天 08:00 北京时间一条日报; 链接到 https://aihot.virxact.com/daily/<date>"
+
+# ============================================================================
+# 娱乐 (entertainment) — 不参与 prefilter / score, 只在 /entertainment 页直接列出
+#
+# 识别方式: category = "entertainment". prefilter SQL 用 JOIN 把这一类源排除,
+# 所以 is_ai_related 永远是 NULL, score 也不会捡到. 只是 fetch + 分页展示.
+# 想换成自建 RSSHub: 把 rsshub.app 替换成 127.0.0.1:41200 即可.
+# ============================================================================
+
+[[source]]
+name     = "B 站 / cop"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/396194"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 范式"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/63231"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 跑团玩家贾克斯"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/480750947"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 润州镜"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/2229752"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / jyy"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/202224425"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 鸟妈妈"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/1543732"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / epcdiy"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/12590"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 智能路障"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/79577853"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 祖娅纳惜"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/3046429"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 边亮_网络安全"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/379889714"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 月神大人"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/277837297"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / MK的鹦鹉"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/373448384"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 北大陈斯一"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/1561297010"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 硬件茶谈"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/14871346"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "B 站 / 逗比的雀巢"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/5294454"
+fetcher  = "rss"
+active   = true
+
+[[source]]
+name     = "观止 · 每日一文"
+tier     = "T2"
+category = "entertainment"
+url      = "https://plink.anyfeeder.com/meiriyiwen"
+fetcher  = "rss"
+active   = true
