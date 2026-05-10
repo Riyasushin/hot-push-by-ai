@@ -107,6 +107,15 @@ fetcher  = "scrape"
 active   = false
 notes    = "Meta AI 不开放 RSS, Step 5 走 scrape"
 
+[[source]]
+name     = "antirez / Salvatore Sanfilippo"
+tier     = "T1"
+category = "kol"
+url      = "https://antirez.com/rss"
+fetcher  = "rss"
+active   = true
+notes    = "Redis 作者个人博客; 系统/分布式/编程哲学"
+
 # ================================
 # T2 — 学术 (3 个 arXiv 主题)
 # ================================
