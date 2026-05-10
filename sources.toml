@@ -45,10 +45,10 @@ notes    = "TODO 2026-05-07: Anthropic 工程博客, infra/agent harness 内容�
 name     = "Anthropic Research"
 tier     = "T1"
 category = "research"
-url      = "https://www.anthropic.com/research"
-fetcher  = "scrape"
-active   = false
-notes    = "TODO 2026-05-07: Anthropic 论文 / 研究报告; 同样需要 scrape"
+url      = "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_research.xml"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-08: 第三方 (Olshansk/rss-feeds) 反代生成的 RSS, 拿 anthropic.com/research 列表页; 标题里夹日期+分类、description 仅复述标题, 正文要走 readability 抓 link. 非官方源, 挂了再 fallback 到 scrape."
 
 [[source]]
 name     = "Google DeepMind Blog"
@@ -190,7 +190,7 @@ active   = true
 
 [[source]]
 name     = "阮一峰 / 网络日志"
-tier     = "T2"
+tier     = "T1.5"
 category = "kol"
 url      = "http://www.ruanyifeng.com/blog/atom.xml"
 fetcher  = "rss"
@@ -256,6 +256,24 @@ url      = "https://www.latent.space/feed"
 fetcher  = "rss"
 active   = false
 notes    = "TODO: AI 工程师视角的 podcast + 文章, 偏应用 / agent infra"
+
+[[source]]
+name     = "Google DeepMind / Blog"
+tier     = "T1.5"
+category = "lab"
+url      = "https://deepmind.google/blog/rss.xml"
+fetcher  = "rss"
+active   = true
+notes    = "DeepMind 官方博客 (与 X/@GoogleDeepMind 互补, 长文为主)"
+
+[[source]]
+name     = "maxOS"
+tier     = "T1.5"
+category = "kol"
+url      = "https://maxoxo.me/rss/"
+fetcher  = "rss"
+active   = true
+notes    = "Ghost 博客, 个人观点向"
 
 [[source]]
 name     = "Dwarkesh Patel"
