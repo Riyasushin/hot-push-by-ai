@@ -1193,6 +1193,14 @@ fetcher  = "rss"
 active   = true
 
 [[source]]
+name     = "B 站 / 杜子源源"
+tier     = "T2"
+category = "entertainment"
+url      = "http://127.0.0.1:41200/bilibili/user/video/1223644844"
+fetcher  = "rss"
+active   = true
+
+[[source]]
 name     = "观止 · 每日一文"
 tier     = "T2"
 category = "entertainment"
