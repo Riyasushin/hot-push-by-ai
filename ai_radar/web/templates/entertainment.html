@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1 class="view-title">{{ view }}</h1>
+
+{% if items|length == 0 %}
+  <div class="empty">
+    还没抓到娱乐源的内容。检查 <code>uv run radar fetch</code> 是否跑过，
+    或看 <code>sources.toml</code> 里 <code>category = "entertainment"</code> 的源是否 active。
+  </div>
+{% else %}
+  <ul class="cards">
+    {% for it in items %}
+      <li class="card">
+        <div class="card-head">
+          <span class="tier tier-{{ it.source_tier }}">{{ it.source_tier }}</span>
+          <span class="source">{{ it.source_name }}</span>
+          <span class="date">{{ it.published_at|fmt_datetime }}</span>
+        </div>
+
+        <h2><a href="{{ it.url }}" target="_blank" rel="noopener">{{ it.title }}</a></h2>
+
+        {% if it.summary %}
+          <p class="summary">{{ it.summary|striptags|truncate(240) }}</p>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if pagination %}
+  <nav class="pagination">
+    {% if pagination.has_prev %}
+      <a href="?page={{ pagination.prev }}">‹ 上一页</a>
+    {% else %}
+      <span class="dim">‹ 上一页</span>
+    {% endif %}
+    <span class="pg-info">
+      第 {{ pagination.page }} / {{ pagination.pages }} 页
+      · 共 {{ pagination.total }} 条
+      · 每页 {{ pagination.size }}
+    </span>
+    {% if pagination.has_next %}
+      <a href="?page={{ pagination.next }}">下一页 ›</a>
+    {% else %}
+      <span class="dim">下一页 ›</span>
+    {% endif %}
+  </nav>
+{% endif %}
+
+{% endblock %}

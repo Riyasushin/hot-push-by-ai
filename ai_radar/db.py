@@ -526,10 +526,12 @@ _PREFILTER_CLAIM_SQL = """
 UPDATE items
    SET claim_owner = ?, claim_at = CURRENT_TIMESTAMP
  WHERE id IN (
-       SELECT id FROM items
-        WHERE is_ai_related IS NULL
-          AND (claim_owner IS NULL OR claim_at < datetime('now', ?))
-        ORDER BY fetched_at DESC
+       SELECT i.id FROM items i
+        JOIN sources s ON s.id = i.source_id
+        WHERE i.is_ai_related IS NULL
+          AND s.category != 'entertainment'
+          AND (i.claim_owner IS NULL OR i.claim_at < datetime('now', ?))
+        ORDER BY i.fetched_at DESC
         LIMIT ?
  )
 RETURNING id
@@ -798,6 +800,7 @@ def selected_items(
     *,
     category: str | None = None,
     limit: int = 100,
+    offset: int = 0,
 ) -> list[sqlite3.Row]:
     """Selected items, with cross-source dedup by `dedup_key` (Zhihu 赞同 etc.)
     collapsed to the highest-scoring representative + endorsement count.
@@ -829,10 +832,29 @@ def selected_items(
         )
         SELECT * FROM ranked WHERE rn = 1
         ORDER BY COALESCE(published_at, fetched_at) DESC, total DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
     """
-    params.append(limit)
+    params.extend([limit, offset])
     return conn.execute(sql, params).fetchall()
+
+
+def selected_count(
+    conn: sqlite3.Connection,
+    *,
+    category: str | None = None,
+) -> int:
+    """Dedup-collapsed count matching ``selected_items`` pagination."""
+    where = ["sc.is_selected = 1"]
+    params: list = []
+    if category:
+        where.append("sc.category = ?")
+        params.append(category)
+    sql = (
+        "SELECT COUNT(DISTINCT COALESCE(i.dedup_key, i.url)) AS n "
+        "FROM scores sc JOIN items i ON i.id = sc.item_id "
+        f"WHERE {' AND '.join(where)}"
+    )
+    return conn.execute(sql, params).fetchone()["n"]
 
 
 def all_scored_items(
@@ -960,6 +982,33 @@ def toggle_feedback(
             (item_id, signal, note),
         )
         return {"active": True, "cleared_opposite": cleared_opposite}
+
+
+# ---------- entertainment (bypass pipeline) ----------
+
+def entertainment_items(
+    conn: sqlite3.Connection, *, limit: int = 50, offset: int = 0,
+) -> list[sqlite3.Row]:
+    """Items from sources marked category='entertainment'. No score join — these
+    bypass prefilter+score entirely (see _PREFILTER_CLAIM_SQL exclusion).
+    """
+    return conn.execute(
+        """SELECT i.id, i.url, i.title, i.summary, i.author,
+                  i.published_at, i.fetched_at,
+                  s.name AS source_name, s.tier AS source_tier
+           FROM items i JOIN sources s ON s.id = i.source_id
+           WHERE s.category = 'entertainment'
+           ORDER BY COALESCE(i.published_at, i.fetched_at) DESC
+           LIMIT ? OFFSET ?""",
+        (limit, offset),
+    ).fetchall()
+
+
+def entertainment_count(conn: sqlite3.Connection) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) AS n FROM items i JOIN sources s ON s.id = i.source_id "
+        "WHERE s.category = 'entertainment'"
+    ).fetchone()["n"]
 
 
 def feedback_for_items(

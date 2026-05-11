@@ -70,7 +70,7 @@
 {% if pagination %}
   <nav class="pagination">
     {% if pagination.has_prev %}
-      <a href="?page={{ pagination.prev }}&size={{ pagination.size }}">‹ 上一页</a>
+      <a href="?page={{ pagination.prev }}">‹ 上一页</a>
     {% else %}
       <span class="dim">‹ 上一页</span>
     {% endif %}
@@ -80,16 +80,10 @@
       · 每页 {{ pagination.size }}
     </span>
     {% if pagination.has_next %}
-      <a href="?page={{ pagination.next }}&size={{ pagination.size }}">下一页 ›</a>
+      <a href="?page={{ pagination.next }}">下一页 ›</a>
     {% else %}
       <span class="dim">下一页 ›</span>
     {% endif %}
-    <span class="pg-sep">·</span>
-    <span class="pg-info dim">每页:</span>
-    <a href="?page=1&size=20">20</a>
-    <a href="?page=1&size=50">50</a>
-    <a href="?page=1&size=100">100</a>
-    <a href="?page=1&size=200">200</a>
   </nav>
 {% endif %}
 

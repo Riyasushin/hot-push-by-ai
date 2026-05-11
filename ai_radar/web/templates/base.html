@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="ai-radar">
   <title>ai-radar · {{ view }}</title>
   {%- set rp = request.scope.root_path -%}
-  <link rel="stylesheet" href="{{ rp }}/static/style.css">
+  <link rel="stylesheet" href="{{ rp }}/static/style.css?v={{ static_version() }}">
 </head>
 <body>
   <header class="topbar">
@@ -23,6 +23,8 @@
         <a href="{{ rp }}/category/{{ c }}"
            class="cat {{ 'active' if view_key == 'cat:' + c else '' }}">{{ c }}</a>
       {% endfor %}
+      <a href="{{ rp }}/entertainment"
+         class="cat {{ 'active' if view_key == 'entertainment' else '' }}">娱乐</a>
     </nav>
     <div class="meta">
       {% if stats %}
@@ -36,8 +38,7 @@
       <div class="banner banner-error">
         <strong>WeRead cookie 过期</strong>:
         最近一次 fetch 抓取微信读书源时返回 <code>errcode -2012</code>。
-        重抓 cookie：
-        <code>bash scripts/weread-cookie-grab.sh --write</code>
+        重抓 cookie：浏览器登录 <code>weread.qq.com</code> → F12 复制 Cookie → 写入 <code>.env</code> 的 <code>weread_cookie</code>
         （日志: <code>data/weread.log</code>）。
       </div>
     {% elif health.rsshub_blocked %}
@@ -64,6 +65,9 @@
   <footer>
     <span class="dim">{{ view }} · {{ now_utc }}</span>
   </footer>
+
+  <button id="to-top" class="to-top" type="button" aria-label="回到顶部" title="回到顶部"
+          onclick="window.scrollTo({ top: 0, behavior: 'smooth' });">↑</button>
 
   <script>
     // POST /feedback/<id> — toggles a (item_id, signal) row server-side.

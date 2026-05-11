@@ -29,6 +29,17 @@ from ai_radar import db
 from ai_radar.fetch import DB_FILE_REL
 
 ALLOWED_FEEDBACK_SIGNALS = {"thumbs_up", "thumbs_down", "hidden", "saved"}
+PAGE_SIZE = 50  # 固定分页大小（除日报外的所有列表视图）
+
+
+def _paginate(*, page: int, total: int, size: int = PAGE_SIZE) -> dict:
+    pages = max(1, (total + size - 1) // size)
+    page = max(1, min(page, pages))
+    return {
+        "page": page, "size": size, "total": total, "pages": pages,
+        "has_prev": page > 1, "has_next": page < pages,
+        "prev": page - 1, "next": page + 1,
+    }
 
 _BASE_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _BASE_DIR / "templates"
@@ -42,6 +53,13 @@ def create_app() -> FastAPI:
     templates.env.filters["fmt_date"] = _fmt_date
     templates.env.filters["fmt_datetime"] = _fmt_datetime
     templates.env.filters["round1"] = lambda v: f"{float(v):.1f}" if v is not None else "—"
+
+    def _static_version() -> str:
+        try:
+            return str(int((_STATIC_DIR / "style.css").stat().st_mtime))
+        except OSError:
+            return "0"
+    templates.env.globals["static_version"] = _static_version
 
     config = cfg.load_config()
     db_path = config.project_root / DB_FILE_REL
@@ -87,48 +105,68 @@ def create_app() -> FastAPI:
         return {i: sorted(s) for i, s in fb.items()}
 
     @app.get("/", response_class=HTMLResponse)
-    def home(request: Request):
-        with closing(_conn()) as c:
-            items = db.selected_items(c, limit=100)
-            stats = db.score_stats(c)
-            feedback = _with_feedback(c, items)
-        return _render(request, "timeline.html",
-                       items=items, stats=stats, feedback=feedback,
-                       view="精选", view_key="home")
-
-    @app.get("/all", response_class=HTMLResponse)
-    def all_view(request: Request, page: int = 1, size: int = 50):
+    def home(request: Request, page: int = 1):
         page = max(1, page)
-        size = max(10, min(200, size))   # bounds: don't let page=1&size=99999 nuke RAM
-        offset = (page - 1) * size
+        offset = (page - 1) * PAGE_SIZE
         with closing(_conn()) as c:
-            items = db.all_scored_items(c, limit=size, offset=offset)
-            total = db.all_scored_count(c)
+            items = db.selected_items(c, limit=PAGE_SIZE, offset=offset)
+            total = db.selected_count(c)
             stats = db.score_stats(c)
             feedback = _with_feedback(c, items)
-        pages = max(1, (total + size - 1) // size)
-        pagination = {
-            "page": page, "size": size, "total": total, "pages": pages,
-            "has_prev": page > 1, "has_next": page < pages,
-            "prev": page - 1, "next": page + 1,
-        }
+        pagination = _paginate(page=page, total=total)
         return _render(request, "timeline.html",
                        items=items, stats=stats, feedback=feedback,
                        pagination=pagination,
-                       view=f"全部 AI 已评分 (page {page}/{pages})", view_key="all",
+                       view=f"精选 (page {pagination['page']}/{pagination['pages']})",
+                       view_key="home")
+
+    @app.get("/all", response_class=HTMLResponse)
+    def all_view(request: Request, page: int = 1):
+        page = max(1, page)
+        offset = (page - 1) * PAGE_SIZE
+        with closing(_conn()) as c:
+            items = db.all_scored_items(c, limit=PAGE_SIZE, offset=offset)
+            total = db.all_scored_count(c)
+            stats = db.score_stats(c)
+            feedback = _with_feedback(c, items)
+        pagination = _paginate(page=page, total=total)
+        return _render(request, "timeline.html",
+                       items=items, stats=stats, feedback=feedback,
+                       pagination=pagination,
+                       view=f"全部 AI 已评分 (page {pagination['page']}/{pagination['pages']})",
+                       view_key="all",
                        show_unselected=True)
 
     @app.get("/category/{cat}", response_class=HTMLResponse)
-    def category_view(request: Request, cat: str = PathParam(...)):
+    def category_view(request: Request, cat: str = PathParam(...), page: int = 1):
         if cat not in categories:
             raise HTTPException(status_code=404, detail=f"unknown category {cat!r}")
+        page = max(1, page)
+        offset = (page - 1) * PAGE_SIZE
         with closing(_conn()) as c:
-            items = db.selected_items(c, category=cat, limit=200)
+            items = db.selected_items(c, category=cat, limit=PAGE_SIZE, offset=offset)
+            total = db.selected_count(c, category=cat)
             stats = db.score_stats(c)
             feedback = _with_feedback(c, items)
+        pagination = _paginate(page=page, total=total)
         return _render(request, "timeline.html",
                        items=items, stats=stats, feedback=feedback,
-                       view=f"类别: {cat}", view_key=f"cat:{cat}")
+                       pagination=pagination,
+                       view=f"类别: {cat} (page {pagination['page']}/{pagination['pages']})",
+                       view_key=f"cat:{cat}")
+
+    @app.get("/entertainment", response_class=HTMLResponse)
+    def entertainment_view(request: Request, page: int = 1):
+        page = max(1, page)
+        offset = (page - 1) * PAGE_SIZE
+        with closing(_conn()) as c:
+            items = db.entertainment_items(c, limit=PAGE_SIZE, offset=offset)
+            total = db.entertainment_count(c)
+        pagination = _paginate(page=page, total=total)
+        return _render(request, "entertainment.html",
+                       items=items, pagination=pagination,
+                       view=f"娱乐 (page {pagination['page']}/{pagination['pages']})",
+                       view_key="entertainment")
 
     @app.get("/daily", response_class=HTMLResponse)
     def daily_today(request: Request):
