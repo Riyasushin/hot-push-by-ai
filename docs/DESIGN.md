@@ -64,7 +64,7 @@
 - 调 tier、改 active、加新源都只动 toml，下次 fetch 即生效。
 - 实现：`ai_radar/config.py::load_sources` + `ai_radar/db.py::sync_sources`
 
-新增源的具体路径见 [`ADDING_SOURCES.md`](./ADDING_SOURCES.md)：原生 RSS / RSSHub / 公共 wechat2rss（xlab.app + bestblogs.dev 双实例）/ WeWe RSS / 微信读书 cookie 直连 / 自建 fetcher。
+新增源的具体路径见 [`ADDING_SOURCES.md`](./ADDING_SOURCES.md)：原生 RSS / RSSHub / 公共 wechat2rss（xlab.app + bestblogs.dev 双实例）/ WeWe RSS / 微信读书 cookie 直连 / 起点小说 qidian fetcher / 自建 fetcher。
 
 ### ② 初筛：kimi-cli 批处理
 
@@ -212,7 +212,8 @@ ai_radar/
 │   ├── base.py              # Protocol Fetcher + Item dataclass + FetchResult
 │   ├── rss.py               # ✅ httpx + feedparser, 含 ETag/304 + URL normalize
 │   ├── weread.py            # ✅ 微信读书 web API (cookie 鉴权, mp/shelf/book 三模式)
-│   └── __init__.py          # FETCHERS dispatcher: rss / weread
+│   ├── qidian.py            # ✅ 起点小说聚合: 零网络 I/O, 纯读 data/qidian_progress.json; "领先 N 章才推" 语义
+│   └── __init__.py          # FETCHERS dispatcher: rss / weread / qidian
 ├── pipeline/
 │   ├── _llm.py              # LLMBackend Protocol + KimiCLIBackend + DeepSeekBackend
 │   ├── _batch_llm.py        # ⭐ BatchedLLMStep ABC: prefilter + score 共享的批处理骨架

@@ -7,7 +7,7 @@
 ## 文档
 
 - [`docs/DESIGN.md`](./docs/DESIGN.md) —— 详细架构、两条架构铁律、五个核心机制、文件树
-- [`docs/ADDING_SOURCES.md`](./docs/ADDING_SOURCES.md) —— 怎么加各种信源（RSS / RSSHub / 公众号 4 条路径 / 微信读书 cookie）
+- [`docs/ADDING_SOURCES.md`](./docs/ADDING_SOURCES.md) —— 怎么加各种信源（RSS / RSSHub / 公众号 4 条路径 / 微信读书 cookie / 起点小说 qidian fetcher）
 
 ## 快速开始
 
@@ -51,14 +51,12 @@ WeRead 的 `wr_skey` 90 分钟绝对到期。Tencent **不会**因为你 GET 主
 `scripts/weread-keepalive.sh` v2 就是这套逻辑，每 30 分钟显式 POST renewal。
 
 ```bash
-# 1. 浏览器开 https://weread.qq.com/ → DevTools → Network →
-#    任选一个 weread.qq.com 请求 → 右键 → Copy → Copy as cURL
-# 2. (Mac) 跑这个脚本, 自动从剪切板提 Cookie + 验 wr_vid/wr_skey + 写回剪切板
-bash scripts/weread-cookie-grab.sh           # → 剪切板上拿到 weread_cookie="..."
-# 或者直接改 .env 不用手动粘:
-bash scripts/weread-cookie-grab.sh --write   # 自动改 .env, 备份在 .env.bak
+# 1. 浏览器登录 https://weread.qq.com/
+# 2. F12 → Network → 任选一个 weread.qq.com 请求 → Headers → 复制 Cookie 整行
+# 3. 写入 .env:
+#       weread_cookie="<整段 Cookie>"
 
-# 顺手验一下 — 应看到 ✓ ROTATED:
+# 验一下 — 应看到 ✓ ROTATED:
 bash scripts/weread-keepalive.sh --once
 ```
 
@@ -94,6 +92,7 @@ tail -f data/weread.log
 | `DEEPSEEK_API_BASE`                | –                       | `https://api.deepseek.com` | OpenAI-兼容 endpoint                                                                                                                              |
 | `DEEPSEEK_MODEL`                   | –                       | `deepseek-v4-flash`        | 模型 ID。V4 系: `deepseek-v4-flash`(默认, 便宜/快)/`deepseek-v4-pro`(更强, 评分质量优先时用)。`deepseek-chat`/`deepseek-reasoner` 2026-07-24 弃用 |
 | `WEREAD_COOKIE` 或 `weread_cookie` | 公众号 走 WeRead 时必填 | —                          | 微信读书 cookie；DevTools Network tab → 任一请求 → Request Headers → Cookie 整行复制（不要 `copy(document.cookie)`，会缺 HTTP-only 字段）         |
+| `QIDIAN_COOKIE`                    | 订起点小说时必填        | —                          | 起点 cookie；浏览器登录 qidian.com → DevTools → Application → Cookies → qidian.com 全部字段拼成 `k=v; k=v; ...` 一行。供 `scripts/qidian-progress-sync.py` 抓 bookcase HTML 用 |
 
 ## 配置文件
 
@@ -119,4 +118,5 @@ tail -f data/weread.log
 | 5.a   | 公众号接入：wechat2rss 14 + WeRead 直连 5 + 官方 RSS 1 = **20 个公众号每日抓取**；WeRead 5 个 (NeuralTalk / PaperAgent / 工程芯一 / 青稞AI / AI Infra之道) 是 wechat2rss **不收录**的硬核源  | ✅      |
 | 5.b   | WeRead cookie 自治续期：`scripts/weread-keepalive.sh` 走 `POST /web/login/renewal` 真续期 (不是 GET / 那种过时玩法), 过 90 分钟服务端自动发新 `wr_skey` 写回 .env, **不 ssh 上去也能跑过夜** | ✅      |
 | 5.c   | X (RSSHub 自建) ✅ / Zhihu (RSSHub 自建 + 用户 cookie) ✅ / arXiv 摘要专用 / Anthropic scrape                                                                                                  | 🟡 部分 |
+| 5.d   | 起点小说订阅：自实现 fetcher (零网络 I/O, 纯读 progress.json) + bookcase 同步脚本 (cookie 抓 my.qidian.com/bookcase HTML, 一次拿 latest+last_read); "领先 N 章才推一次, 只显示书名" 语义       | ✅      |
 | 6     | WeWe RSS 自建 / 趋势预测 / 热度指数                                                                                                                                                          | ⏳      |

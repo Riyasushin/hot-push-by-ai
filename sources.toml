@@ -1199,3 +1199,52 @@ category = "entertainment"
 url      = "https://plink.anyfeeder.com/meiriyiwen"
 fetcher  = "rss"
 active   = true
+
+# ============================================================================
+# 起点小说 (qidian fetcher 自实现, 不每章一条 — 按 "领先 N 章" 聚合, 一本书
+# 最多一行 "《xxx》 积压了 N 章未读". 状态走 data/qidian_progress.json,
+# 用 scripts/qidian-progress-sync.py 同步 (需 .env 的 QIDIAN_COOKIE).
+#
+# bookId 从 https://www.qidian.com/book/<id>/ 取. URL 必须是 qidian://book/<id>.
+# 走本地 RSSHub /qidian/chapter/<id> (无需 cookie, 无需 puppeteer).
+# ============================================================================
+
+[[source]]
+name     = "起点 / 文豪1879：独行法兰西"
+tier     = "T2"
+category = "entertainment"
+url      = "qidian://book/1045279264"
+fetcher  = "qidian"
+active   = true
+
+[[source]]
+name     = "起点 / 我命令你成为密教教主"
+tier     = "T2"
+category = "entertainment"
+url      = "qidian://book/1047720448"
+fetcher  = "qidian"
+active   = true
+
+[[source]]
+name     = "起点 / 我在美国拼高达"
+tier     = "T2"
+category = "entertainment"
+url      = "qidian://book/1047777980"
+fetcher  = "qidian"
+active   = true
+
+[[source]]
+name     = "起点 / 修仙界唯一出马仙"
+tier     = "T2"
+category = "entertainment"
+url      = "qidian://book/1048721558"
+fetcher  = "qidian"
+active   = true
+
+[[source]]
+name     = "起点 / 大明太子的创业生涯"
+tier     = "T2"
+category = "entertainment"
+url      = "qidian://book/1048168206"
+fetcher  = "qidian"
+active   = true

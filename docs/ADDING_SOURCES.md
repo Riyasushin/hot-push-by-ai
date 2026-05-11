@@ -281,7 +281,108 @@ uv run radar weight
 4. **量大可能压满 prefilter 预算**：机器之心、PaperWeekly 这种大号一天可能 5-10 条；同时激活 6 个 → 30-60 条/天，把 kimi-cli `--limit` 调高
 5. **重复内容**：多个 KOL 公众号可能转同一篇官方稿。事件聚类砍了，所以会重复显示——这是已知接受的代价（你说不要 Step 3 的事件聚类）
 
-### 5. 必须自己写 fetcher 的情况
+### 5. 起点小说（qidian fetcher）—— 一种"聚合 + 已读位置"型源
+
+起点不开放 RSS，RSSHub 有 `/qidian/chapter/:id` 但**不用**——我们要的不是"每章一条进 timeline"，而是"领先 N 章才推一次，只显示书名"。所以单写一个 fetcher，把"聚合 + 已读对比"做在 fetcher 里。
+
+**架构**（fetcher 零网络 I/O；状态全在 `data/qidian_progress.json`）：
+
+```
+sync 脚本 (cron 30min)             fetcher (radar fetch)
+       │                                  │
+       ▼                                  ▼
+my.qidian.com/bookcase            读 progress.json
+   ↓ 服务端渲染的 HTML                ↓ latest - last_read >= offset?
+   ↓ 一次拿 latest + last_read       ↓ 是 → emit 1 个 Item, title=书名
+       └──→ data/qidian_progress.json ←──┘
+```
+
+**为什么走 bookcase HTML 而不是 ajax**：起点的 `/ajax/MyBookShelf/getBookShelf` / `/ajax/Library/getLibrary` 这些路径全 404 了（2026 实测），私有接口一年改两次；bookcase 是服务端模板渲染的页面，结构多年没动，反而更稳。
+
+**操作步骤：**
+
+#### 1. 拿 cookie
+
+浏览器登录 `https://www.qidian.com/` → DevTools → Application → Cookies → `qidian.com` 全部复制 → 拼成 `key=value; key=value; ...` 一行，塞 `.env`：
+
+```bash
+QIDIAN_COOKIE="ywkey=...; ywguid=...; ywopenid=...; _csrfToken=...; w_tsfp=...; ..."
+```
+
+最小化：`ywguid + ywopenid + ywkey + _csrfToken + w_tsfp` 足够过 bookcase 鉴权；多余字段留着无害。
+
+#### 2. 找 bookId
+
+每本书 URL 是 `https://www.qidian.com/book/<bookId>/`，末段那串数字就是 bookId（10 位数）。
+
+#### 3. 填 sources.toml
+
+```toml
+[[source]]
+name     = "起点 / 文豪1879：独行法兰西"
+tier     = "T2"
+category = "entertainment"        # entertainment 自动绕过 prefilter + score
+url      = "qidian://book/1045279264"
+fetcher  = "qidian"
+active   = true
+```
+
+> 必须用 `qidian://book/<bookId>` 这个伪协议，不是 https。fetcher 用它当 bookId 索引去 progress.json 里找状态。
+
+#### 4. 调 offset（领先 N 章才推）
+
+默认 `offset = 20`（在 `data/qidian_progress.json` 的 `default_offset` 字段）。想给单本书单设阈值：
+
+```bash
+# 给"修仙界唯一出马仙"单独设 offset=10（更勤推）
+uv run python scripts/qidian-progress-sync.py --set 1048721558 0 --offset 10
+```
+
+#### 5. 同步进度
+
+cookie 配好后，跑一次 probe 验证：
+
+```bash
+uv run python scripts/qidian-progress-sync.py --probe
+# 应看到 "解析出 N 本书" 并列出 latest / read / gap, 每本订阅的源都得在其中
+```
+
+正式 sync（写 progress.json）：
+
+```bash
+uv run python scripts/qidian-progress-sync.py --once
+# ✓ ... synced from bookcase: 5/5 books updated
+```
+
+#### 6. 接 cron
+
+`scripts/auto-update.sh` 已挂上 sync 在 fetch 之前跑（`|| true`，失败不阻塞日报流水）。手动挂 cron：
+
+```cron
+*/30 * * * * cd /home/rj/Apps/ai-reader && uv run python scripts/qidian-progress-sync.py --once >> data/qidian-sync.log 2>&1
+```
+
+#### 7. 异常排查
+
+| 现象 | 原因 | 怎么办 |
+|---|---|---|
+| `bookcase status=401/302` 或 `没有 nickName 字段` | cookie 失效 | 浏览器重登 qidian.com，重抓 cookie 替换 |
+| `解析出 0 本书` | bookcase HTML 模板改了 | 看 `_BOOKID_RE` / `_LATEST_TITLE_RE` 正则，对照新 HTML 调 |
+| 某本书 sync 后 timeline 还是没推 | gap < offset，正常；或者 `offset=20` 太大 | `--set <bid> <chapter> --offset <N>` 单设阈值 |
+| 章节号是中文 (`第三百六十章`) 解析错 | bug | `ai_radar/fetchers/qidian.py` 的 `_cn_to_int` 应已覆盖 1-99999，遇到没覆盖的形式提 issue |
+
+#### 8. 手动覆盖（绕过 cookie）
+
+懒得维护 cookie 时可以纯手动管：
+
+```bash
+# 我读到第 245 章了, offset 默认 20
+uv run python scripts/qidian-progress-sync.py --set 1010868264 245
+```
+
+这条用法不需要 cookie，只改 progress.json。fetcher 行为不变。
+
+### 6. 必须自己写 fetcher 的情况
 
 只有当一个站点：
 - 没有官方 RSS
