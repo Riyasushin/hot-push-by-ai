@@ -1,47 +1,42 @@
 """WeChat Reading (微信读书) fetcher.
 
-**2026-05-07 — capability upgrade**: previously thought to be discovery-only
-(via ``chapterInfos``, which still returns ``updated:[]`` for MP books).
-We discovered the SPA reader at ``/web/mp/reader/`` is backed by a different
-endpoint, ``GET /web/mp/articles?bookId=<MP_WXS_*>``, which **does** return
-the per-公众号 article list with title / preview-content / publish time /
-the original ``mp.weixin.qq.com`` short id (``originalId``).
+Backed by ``GET /web/mp/articles?bookId=<MP_WXS_*>``, which returns the
+per-公众号 article list (title / preview / publish time / mp.weixin short id).
+Item URL is ``https://mp.weixin.qq.com/s/<originalId>`` — verified to return
+200 directly with a modern browser UA + ``Referer: https://weread.qq.com/``;
+the Sogou middleman is NOT needed (it triggers anti-spider).
 
-**Item URL** is ``https://mp.weixin.qq.com/s/<originalId>``. Verified the
-canonical 公众号 URL returns 200 directly (no captcha) when called with a
-modern browser User-Agent + a Referer like ``https://weread.qq.com/``. The
-Sogou middleman (``weixin.sogou.com``) is NOT needed — it would in fact
-fail because Sogou's ``/link?...`` redirector triggers anti-spider.
+What we don't have:
+- Full article body. We store only the ~120 char WeRead preview, which is
+  enough for prefilter + score.
+- Mobile-only ``i.weread.qq.com`` endpoints (different ``accessToken`` auth).
 
-What we still don't have:
-    - Full article body (mp.weixin response has it; we only store the WeRead
-      preview ``content`` ~120 chars, enough for prefilter + score).
-    - Mobile-only ``i.weread.qq.com`` endpoints (different ``accessToken`` auth).
-
-**Cookie session is SHORT** — WeRead web ``wr_skey`` invalidates within hours.
-Look for ``weread-auth:`` errors in ``fetch_runs.errors`` and re-grab cookie
-from DevTools when seen. For cron-friendly long-term use, prefer self-hosted
-WeWe RSS (path B in ``docs/ADDING_SOURCES.md``).
+Cookie maintenance: ``wr_skey`` has a 90-minute ABSOLUTE TTL; refreshed by
+``scripts/weread-keepalive.sh`` via ``POST /web/login/renewal``. The 1-year
+``wr_rt`` is the real long-lived credential. Errcode semantics + cookie-field
+breakdown live in ``memory/reference_weread_cookie.md``.
 
 Endpoints used:
     GET  /web/shelf/sync                — full shelf, incl. mp section
     GET  /web/mp/articles?bookId=...    — ⭐ article list for one 公众号
-    GET  /web/mp/cover?bookId=...       — latest single article + cover info
-    POST /web/book/chapterInfos         — normal books only (kept for non-MP)
+    POST /web/book/chapterInfos         — normal books (kept for non-MP)
 
 Source URL convention:
-    weread://shelf                  → walk shelf, fetch articles for every MP_ book
-    weread://book/<bookId>          → specific bookId; auto-detects MP vs normal book
-    weread://mpbook                 → legacy lumped 文章收藏 (rarely useful)
+    weread://shelf           → walk shelf, fetch articles for every MP_ book
+    weread://book/<bookId>   → specific bookId (auto-detects MP vs normal)
+    weread://mpbook          → legacy lumped 文章收藏 (rarely useful)
 
-Run ``radar weread-list`` to discover what bookIds you have on your shelf.
+Run ``radar weread-list`` to discover bookIds on your shelf.
 """
 
 from __future__ import annotations
 
 import os
+import random
+import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import httpx
 
@@ -51,24 +46,70 @@ if TYPE_CHECKING:
     from ai_radar.db import SourceRow
 
 
-# Distinct error categories so the caller can tell what went wrong.
-class WeReadCookieError(RuntimeError):
-    """Cookie missing, expired, or 401. User needs to re-grab cookie."""
-
-
-class WeReadEndpointError(RuntimeError):
-    """API endpoint returned 404 / -2003. Code bug or API moved."""
-
-
-class WeReadResponseError(RuntimeError):
-    """Got a 200 but body is malformed / unparseable. Code or transient bug."""
-
 BASE = "https://weread.qq.com"
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 _USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 )
+# Spread shelf-walk requests so we don't pulse-burst WeRead's mp.weixin proxy
+# (which manifests as -10100 upstream timeouts when called too fast).
+_PER_BOOK_JITTER_RANGE = (0.5, 1.2)
+# One backoff retry on -10100 before giving up on this book this round.
+_UPSTREAM_TIMEOUT_BACKOFF_S = 3.0
+
+
+# ---------- exceptions ----------
+#
+# Errcode semantics are documented in ``memory/reference_weread_cookie.md``.
+# Subclassing ``WeReadResponseError`` keeps callers that catch the parent
+# class working unchanged while letting precise handlers branch on subclass.
+
+class WeReadCookieError(RuntimeError):
+    """Auth-side: cookie missing, HTTP 401, or errcode -2012. User re-grabs cookie."""
+
+
+class WeReadEndpointError(RuntimeError):
+    """Endpoint-side: HTTP 4xx / 404 / errcode -2003. Code bug or API moved."""
+
+
+class WeReadResponseError(RuntimeError):
+    """200-with-error-body. ``errcode`` carries the parsed negative code when
+    known; ``None`` for malformed-body cases.
+    """
+
+    def __init__(self, msg: str, errcode: int | None = None) -> None:
+        super().__init__(msg)
+        self.errcode = errcode
+
+
+class WeReadUpstreamTimeout(WeReadResponseError):
+    """-10100: WeRead's own upstream call to mp.weixin timed out. Per-book
+    transient — retry once with backoff, otherwise skip this book for the
+    round (a sibling 公众号 likely still works).
+    """
+
+
+class WeReadBlockedError(WeReadResponseError):
+    """Account-level dead-end: -2041 (need verify / 风控), -2050 (拉黑),
+    -2054 (wr_rt 失效), -2063 (验证过期). Hammering only makes 风控 more
+    aggressive — abort the walk and surface the error so the caller can
+    re-login manually.
+    """
+
+
+# Errcode → exception class. Single source of truth for ``_classify_response``.
+# Subclasses of WeReadResponseError get the (msg, errcode) constructor;
+# the auth/endpoint classes take just msg.
+_ERRCODE_TO_EXC: dict[int, type[Exception]] = {
+    -2012: WeReadCookieError,
+    -2003: WeReadEndpointError,
+    -2041: WeReadBlockedError,
+    -2050: WeReadBlockedError,
+    -2054: WeReadBlockedError,
+    -2063: WeReadBlockedError,
+    -10100: WeReadUpstreamTimeout,
+}
 
 
 def _read_cookie() -> str:
@@ -92,26 +133,27 @@ def _read_cookie() -> str:
 
 
 def _classify_response(r: httpx.Response) -> None:
-    """Raise the right exception class based on shape of WeRead's reply."""
+    """Raise the right exception class based on the shape of WeRead's reply."""
     if r.status_code == 401:
-        raise WeReadCookieError(f"HTTP 401: cookie expired (re-grab it)")
+        raise WeReadCookieError("HTTP 401: cookie expired (re-grab it)")
     if r.status_code == 404:
         raise WeReadEndpointError(f"HTTP 404: endpoint missing or wrong path: {r.url}")
     if r.status_code >= 400:
         raise WeReadEndpointError(f"HTTP {r.status_code}: {r.text[:200]}")
-    # 200 but error inside body
     try:
         body = r.json()
     except Exception:
-        return  # not JSON, caller handles
-    if isinstance(body, dict):
-        errcode = body.get("errcode") or body.get("errCode")
-        if errcode in (-2012,):  # 登录超时
-            raise WeReadCookieError(f"errcode={errcode}: {body.get('errmsg') or body.get('errMsg')}")
-        if errcode in (-2003,):  # 参数格式错误
-            raise WeReadEndpointError(f"errcode={errcode}: {body.get('errmsg') or body.get('errMsg')}")
-        if errcode and errcode < 0:
-            raise WeReadResponseError(f"errcode={errcode}: {body.get('errmsg') or body.get('errMsg')}")
+        return  # not JSON; caller decides what to do
+    if not isinstance(body, dict):
+        return
+    errcode = body.get("errcode") or body.get("errCode")
+    if not errcode or errcode >= 0:
+        return
+    msg = f"errcode={errcode}: {body.get('errmsg') or body.get('errMsg')}"
+    cls = _ERRCODE_TO_EXC.get(errcode, WeReadResponseError)
+    if issubclass(cls, WeReadResponseError):
+        raise cls(msg, errcode=errcode)
+    raise cls(msg)
 
 
 def _client() -> httpx.Client:
@@ -169,6 +211,20 @@ def mp_articles(client: httpx.Client, book_id: str) -> dict:
     return r.json()
 
 
+def mp_articles_with_retry(client: httpx.Client, book_id: str) -> dict:
+    """``mp_articles`` with one backoff retry on -10100 upstream-timeout.
+
+    Other errcodes (cookie / endpoint / 风控 / unknown) propagate unchanged —
+    they're either auth-level (won't fix in 3s) or account-level (retrying
+    only worsens 风控 per the errcode reference memory).
+    """
+    try:
+        return mp_articles(client, book_id)
+    except WeReadUpstreamTimeout:
+        time.sleep(_UPSTREAM_TIMEOUT_BACKOFF_S)
+        return mp_articles(client, book_id)
+
+
 # ---------- fetcher ----------
 
 class WeReadFetcher:
@@ -178,67 +234,103 @@ class WeReadFetcher:
         if not source.url:
             return FetchResult(items=[], error="empty url")
 
-        # Parse source.url: weread://mpbook | weread://shelf | weread://book/<id>
-        path = source.url.replace("weread://", "", 1).strip("/")
+        target, sub = _parse_source_url(source.url)
+        if target is None:
+            return FetchResult(
+                items=[],
+                error=f"weread-bad-url: {source.url!r} "
+                      f"(use weread://shelf | weread://book/<id> | weread://mpbook)",
+            )
 
+        # Items collected so far. Mutated in place by the shelf walker so a
+        # mid-walk global error (e.g. 风控) still surfaces partial progress
+        # instead of throwing away every successfully-fetched book.
+        items: list[Item] = []
         try:
             with _client() as client:
-                if path == "mpbook":
-                    items = self._fetch_book_articles(client, "mpbook")
-                elif path == "shelf":
-                    items = self._fetch_all_subscribed_mp(client)
-                elif path.startswith("book/"):
-                    book_id = path[len("book/"):]
-                    items = self._fetch_book_articles(client, book_id)
-                else:
-                    return FetchResult(
-                        items=[],
-                        error=f"weread-bad-url: {path!r} "
-                              f"(use mpbook | shelf | book/<id>)",
-                    )
+                if target == "shelf":
+                    self._fetch_all_subscribed_mp(client, items)
+                elif target == "mpbook":
+                    items.extend(self._fetch_book_articles(client, "mpbook"))
+                else:  # target == "book"
+                    items.extend(self._fetch_book_articles(client, sub))
         except WeReadCookieError as exc:
-            # Distinct so cron logs / status make it obvious to re-grab cookie.
-            return FetchResult(items=[], error=f"weread-auth: {exc}")
+            return FetchResult(items=items, error=f"weread-auth: {exc}")
         except WeReadEndpointError as exc:
-            return FetchResult(items=[], error=f"weread-endpoint: {exc}")
+            return FetchResult(items=items, error=f"weread-endpoint: {exc}")
+        except WeReadBlockedError as exc:
+            # Distinct from -auth so cron / status surfaces "manual re-login
+            # required" rather than "just refresh cookie".
+            return FetchResult(items=items, error=f"weread-blocked: {exc}")
+        except WeReadUpstreamTimeout as exc:
+            # Only reaches here on single-book paths; shelf walk swallows
+            # per-book -10100 internally.
+            return FetchResult(items=items, error=f"weread-timeout: {exc}")
         except WeReadResponseError as exc:
-            return FetchResult(items=[], error=f"weread-response: {exc}")
+            return FetchResult(items=items, error=f"weread-response: {exc}")
         except httpx.HTTPError as exc:
-            return FetchResult(items=[], error=f"weread-http: {exc!r}")
+            return FetchResult(items=items, error=f"weread-http: {exc!r}")
         except Exception as exc:  # noqa: BLE001
-            return FetchResult(items=[], error=f"weread-other: {exc!r}")
+            return FetchResult(items=items, error=f"weread-other: {exc!r}")
 
         return FetchResult(items=items)
 
     def _fetch_book_articles(self, client: httpx.Client, book_id: str) -> list[Item]:
-        # 公众号 books (MP_*) go through the MP article-list endpoint;
-        # everything else through chapterInfos.
+        # MP_* → 公众号 article list; anything else → normal book chapters.
         if book_id.startswith("MP_"):
-            return _mp_book_to_items(mp_articles(client, book_id), book_id)
+            return _mp_book_to_items(mp_articles_with_retry(client, book_id), book_id)
         return _normal_book_to_items(chapter_infos(client, [book_id]), book_id)
 
-    def _fetch_all_subscribed_mp(self, client: httpx.Client) -> list[Item]:
-        """Walk shelf, fetch /web/mp/articles for every MP_* book."""
+    def _fetch_all_subscribed_mp(
+        self, client: httpx.Client, items: list[Item],
+    ) -> None:
+        """Walk shelf, fetch /web/mp/articles for every MP_* book.
+
+        Mutates ``items`` in place so caller still sees partial progress on
+        a global error (cookie / endpoint / 风控). Per-book transients
+        (upstream timeout, HTTP blip) are swallowed locally so one bad
+        公众号 doesn't kill the round.
+        """
         shelf = shelf_sync(client)
+        mp_book_ids = [
+            b["bookId"] for b in (shelf.get("books") or [])
+            if (b.get("bookId") or "").startswith("MP_") and b.get("type") == 3
+        ]
 
-        mp_book_ids: list[str] = []
-        for b in shelf.get("books", []) or []:
-            bid = b.get("bookId", "")
-            # Verified 2026-05-07: 公众号 are type=3 with bookId starting MP_*.
-            if bid.startswith("MP_") and b.get("type") == 3:
-                mp_book_ids.append(bid)
-
-        items: list[Item] = []
-        for bid in mp_book_ids:
+        for i, bid in enumerate(mp_book_ids):
+            if i > 0:
+                time.sleep(random.uniform(*_PER_BOOK_JITTER_RANGE))
             try:
-                items.extend(_mp_book_to_items(mp_articles(client, bid), bid))
-            except (WeReadCookieError, WeReadEndpointError, WeReadResponseError):
-                # Re-raise — auth / endpoint problems are not per-book recoverable.
-                raise
-            except httpx.HTTPError:
-                # Per-book transient HTTP issue: skip this book, keep going.
+                items.extend(_mp_book_to_items(mp_articles_with_retry(client, bid), bid))
+            except WeReadUpstreamTimeout:
+                # Already retried once inside the helper — skip this 公众号
+                # this round, next cycle picks it up.
                 continue
-        return items
+            except httpx.HTTPError:
+                continue
+            # WeReadCookieError / WeReadEndpointError / WeReadBlockedError /
+            # WeReadResponseError propagate up — they're global, not per-book.
+
+
+# ---------- source URL parsing ----------
+
+def _parse_source_url(url: str) -> tuple[str | None, str]:
+    """Split ``weread://...`` into (target, subpath) per source-URL convention.
+
+    Returns ``(target, sub)`` with target ∈ {``"shelf"``, ``"mpbook"``, ``"book"``}
+    and ``sub`` the path remainder for ``book/<id>`` (empty otherwise). Returns
+    ``(None, "")`` for any URL that doesn't fit the convention.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "weread":
+        return None, ""
+    target = parsed.netloc
+    sub = parsed.path.strip("/")
+    if target in ("shelf", "mpbook") and not sub:
+        return target, ""
+    if target == "book" and sub:
+        return target, sub
+    return None, ""
 
 
 # ---------- response → Item parsers ----------
