@@ -183,7 +183,7 @@ ping_once() {
     fi
 
     if [[ "$rc" -eq 4 ]]; then
-        echo "$now ✗ EXPIRED (errcode -2012). Re-grab via scripts/weread-cookie-grab.sh."
+        echo "$now ✗ EXPIRED (errcode -2012). 浏览器登录 weread.qq.com → F12 复制 Cookie → 写入 .env 的 weread_cookie"
         return 4
     fi
     if [[ "$rc" -eq 3 ]]; then
@@ -239,8 +239,8 @@ while true; do
             ;;
         4)
             echo "$(date +'%Y-%m-%d %H:%M:%S') ✗✗ STOPPING — cookie expired."
-            echo "$(date +'%Y-%m-%d %H:%M:%S')      bash scripts/weread-cookie-grab.sh --write"
-            echo "$(date +'%Y-%m-%d %H:%M:%S')      then restart: nohup bash scripts/weread-keepalive.sh > data/weread.log 2>&1 &"
+            echo "$(date +'%Y-%m-%d %H:%M:%S')      浏览器登录 weread.qq.com → F12 复制 Cookie → 写入 .env (weread_cookie=...)"
+            echo "$(date +'%Y-%m-%d %H:%M:%S')      然后重启: nohup bash scripts/weread-keepalive.sh > data/weread.log 2>&1 &"
             exit 0
             ;;
         2)
