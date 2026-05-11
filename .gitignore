@@ -36,6 +36,7 @@ data/.fetch.lock
 data/.rescore.lock
 data/.weread.lock
 data/weread_shelf.json
+scoring_output.json
 
 # --- Generated reports (rebuilt by `radar report`) ---
 reports/*.md

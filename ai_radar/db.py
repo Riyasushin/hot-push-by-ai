@@ -639,6 +639,23 @@ def release_stale_claims(
     return cur.rowcount or 0
 
 
+def mark_item_excluded(
+    conn: sqlite3.Connection, *, item_id: int,
+) -> None:
+    """Permanently exclude an item from prefilter + score pending pools.
+
+    Sets ``is_ai_related = -1`` (sentinel for "LLM refused / content_filter").
+    Both ``_PREFILTER_CLAIM_SQL`` (matches IS NULL) and ``_SCORE_CLAIM_SQL``
+    (matches = 1) skip this row going forward. Also clears any active claim.
+    """
+    conn.execute(
+        "UPDATE items SET is_ai_related = -1, "
+        "                  claim_owner = NULL, claim_at = NULL "
+        "WHERE id = ?",
+        (item_id,),
+    )
+
+
 def items_still_pending_prefilter(
     conn: sqlite3.Connection, *, item_ids: list[int],
 ) -> list[int]:

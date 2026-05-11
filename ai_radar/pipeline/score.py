@@ -182,6 +182,12 @@ class Scorer(BatchedLLMStep):
             model=self.backend.name,
         )
 
+    def _mark_filtered(self, conn: sqlite3.Connection, item_id: int) -> None:
+        # Score-side bisect: Kimi rejected this item's prompt as high-risk.
+        # Same sentinel as prefilter — flip to is_ai_related=-1 so the score
+        # claim SQL (which selects is_ai_related=1) won't pick it up again.
+        db.mark_item_excluded(conn, item_id=item_id)
+
     def _build_stats(self, pending: list[PendingItem]) -> dict:
         return {
             "step": self.name,

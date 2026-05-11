@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai_radar import db
-from ai_radar.pipeline._llm import LLMBackend, extract_json
+from ai_radar.pipeline._llm import KimiContentFilterError, LLMBackend, extract_json
 
 log = logging.getLogger(__name__)
 
@@ -144,6 +144,12 @@ class BatchedLLMStep(ABC):
         prompt = self._build_prompt(batch)
         try:
             raw = self.backend.complete(prompt)
+        except KimiContentFilterError:
+            # One (or more) item in this batch trips Kimi's content moderation.
+            # Bisect to isolate, then mark the offender via _mark_filtered so
+            # it leaves the pending pool permanently — otherwise next run
+            # re-claims it and trips the same filter again.
+            return self._bisect_on_content_filter(conn, batch)
         except Exception as exc:  # noqa: BLE001 — backend can fail many ways
             return BatchOutcome(
                 requested=len(batch), written=0, failed=True, error=repr(exc)
@@ -166,6 +172,29 @@ class BatchedLLMStep(ABC):
         requested_ids = {it.id for it in batch}
         written = self._parse_and_write(conn, payload, requested_ids)
         return BatchOutcome(requested=len(batch), written=written)
+
+    def _bisect_on_content_filter(
+        self, conn: sqlite3.Connection, batch: list,
+    ) -> BatchOutcome:
+        if len(batch) == 1:
+            it = batch[0]
+            self._mark_filtered(conn, it.id)
+            log.warning(
+                "%s: content_filter rejected single item id=%s, marked excluded "
+                "(is_ai_related=-1).", self.name, it.id,
+            )
+            # Counted as 'requested' but not 'written' — caller stats will
+            # show pending-not-scored, while the row itself is out of the pool.
+            return BatchOutcome(requested=1, written=0)
+        mid = len(batch) // 2
+        left = self._process_batch(conn, batch[:mid])
+        right = self._process_batch(conn, batch[mid:])
+        return BatchOutcome(
+            requested=left.requested + right.requested,
+            written=left.written + right.written,
+            failed=left.failed or right.failed,
+            error=left.error or right.error,
+        )
 
     def _build_prompt(self, batch: list) -> str:
         if self._system_prompt is None:
@@ -236,6 +265,16 @@ class BatchedLLMStep(ABC):
         self, conn: sqlite3.Connection, payload: list, requested_ids: set[int]
     ) -> int:
         """Write verdicts. Returns count of items actually persisted."""
+
+    @abstractmethod
+    def _mark_filtered(self, conn: sqlite3.Connection, item_id: int) -> None:
+        """Permanently exclude one item from this step's pending pool.
+
+        Called when bisect has narrowed a Kimi content_filter rejection down
+        to a single item — that item must leave the pool, otherwise the next
+        run re-claims it and trips the same filter. Implementations typically
+        flip a sentinel column (we use ``is_ai_related = -1``).
+        """
 
     @abstractmethod
     def _build_stats(self, pending: list) -> dict:

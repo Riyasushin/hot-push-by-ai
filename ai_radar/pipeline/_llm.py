@@ -25,6 +25,17 @@ import httpx
 
 _CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 _RESUME_LINE_RE = re.compile(r"^To resume this session:.*$", re.MULTILINE)
+# Kimi server-side content moderation reject. Surfaces in kimi-cli stdout as
+# ``Error code: 400 ... 'type': 'content_filter'`` and from the HTTP API as a
+# 400 body with the same ``type``. Permanent for that exact prompt — do NOT
+# retry the same request; bisect the batch instead.
+_CONTENT_FILTER_RE = re.compile(
+    r"content_filter|considered high risk", re.IGNORECASE
+)
+
+
+class KimiContentFilterError(RuntimeError):
+    """Kimi rejected the prompt as 'high risk'. Don't retry — bisect the batch."""
 
 
 def extract_json(raw: str) -> object:
@@ -123,7 +134,18 @@ class KimiCLIBackend:
             )
             if proc.returncode == 0:
                 return proc.stdout
-            last_err = (proc.stderr or "").strip()[:300]
+            combined = ((proc.stdout or "") + "\n" + (proc.stderr or ""))
+            if _CONTENT_FILTER_RE.search(combined):
+                # Permanent for this exact prompt — caller should bisect.
+                raise KimiContentFilterError(combined.strip()[:500])
+            last_err = (proc.stderr or "").strip()
+            if os.environ.get("RADAR_KIMI_DEBUG"):
+                import sys as _sys
+                _sys.stderr.write(
+                    f"\n[kimi-debug attempt {attempt+1}] rc={proc.returncode}\n"
+                    f"stderr={last_err!r}\nstdout_tail={(proc.stdout or '')[-500:]!r}\n"
+                )
+            last_err = last_err[:1500]
             if attempt < self._MAX_RETRIES:
                 # Brief backoff before retry. Exponential: 1.5s, 3s.
                 import time as _t
@@ -222,6 +244,8 @@ class KimiCLIPersistentBackend:
             line = line.strip()
             if not line:
                 continue
+            if _CONTENT_FILTER_RE.search(line):
+                raise KimiContentFilterError(line[:500])
             try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
@@ -261,6 +285,13 @@ class KimiCLIPersistentBackend:
                 out = self._read_assistant()
                 self._call_count += 1
                 return out
+            except KimiContentFilterError:
+                # Permanent for this prompt. Don't respawn / retry; bubble up
+                # so the caller can bisect. Kill the proc anyway because
+                # kimi-cli's stream-json state machine may be wedged after a
+                # mid-stream rejection — next call will respawn cleanly.
+                self._kill_proc()
+                raise
             except (BrokenPipeError, OSError, RuntimeError) as e:
                 last_err = e
                 # Subprocess died mid-call. Force respawn next iteration.
@@ -438,8 +469,11 @@ class KimiAPIBackend:
             ) as resp:
                 if resp.status_code >= 400:
                     resp.read()
+                    body = resp.text or ""
+                    if resp.status_code == 400 and _CONTENT_FILTER_RE.search(body):
+                        raise KimiContentFilterError(body[:500])
                     raise RuntimeError(
-                        f"kimi HTTP {resp.status_code}: {resp.text[:300]}"
+                        f"kimi HTTP {resp.status_code}: {body[:300]}"
                     )
                 chunks: list[str] = []
                 for line in resp.iter_lines():

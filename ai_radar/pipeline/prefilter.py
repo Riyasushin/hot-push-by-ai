@@ -198,6 +198,9 @@ class Prefilter(BatchedLLMStep):
                 written += 1
         return written
 
+    def _mark_filtered(self, conn: sqlite3.Connection, item_id: int) -> None:
+        db.mark_item_excluded(conn, item_id=item_id)
+
     def _build_stats(self, pending: list[PendingItem]) -> dict:
         return {
             "step": self.name,
