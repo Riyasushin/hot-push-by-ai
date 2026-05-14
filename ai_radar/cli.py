@@ -74,7 +74,14 @@ def _progress_bar(label: str) -> Progress:
 
 
 @app.command()
-def fetch() -> None:
+def fetch(
+    source: str | None = typer.Option(
+        None, "--source", "-s",
+        help="Only fetch sources whose name contains this substring "
+             "(case-insensitive). Bypasses the active flag — useful for "
+             "manually verifying a disabled source.",
+    ),
+) -> None:
     """Pull new items from every active source in sources.toml.
 
     \b
@@ -87,11 +94,12 @@ def fetch() -> None:
 
     \b
     Examples:
-      radar fetch                  # one cycle
+      radar fetch                       # one cycle, all active sources
+      radar fetch --source paper-radar  # only that one (active flag ignored)
       # cron (every 2h):
       0 */2 * * *  cd /repo && uv run radar fetch
     """
-    raise typer.Exit(fetch_main())
+    raise typer.Exit(fetch_main(name_filter=source))
 
 
 @app.command()

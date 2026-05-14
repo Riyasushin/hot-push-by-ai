@@ -152,6 +152,15 @@ fetcher  = "rss"
 active   = false
 notes    = "Hardware Architecture — 关心硬件方向时打开；2026-05-07 暂停 fetch"
 
+[[source]]
+name     = "LLM-system 精读队列 (paper-radar)"
+tier     = "T1"
+category = "classics"
+url      = "https://rijoshin-omen-1.tail88a62f.ts.net/sys-papers/feed/papers.xml"
+fetcher  = "rss"
+active   = true
+notes    = "外部独立服务 paper-radar (~/Apps/paper-radar): 3 年系统顶会 LLM-system 论文, 每天 2-3 篇, 原文 + kimi 精读导读; 网页/RSS 挂在 tailscale serve 的 /sys-papers 下. category=classics 让它绕过 prefilter+score, 由 weight 步骤注入合成 scores 行 (category=经典必读, dims=10), 直接挂在 /category/经典必读 下."
+
 # ================================
 # T2 — 研究博主 (4)
 # ================================
@@ -274,6 +283,15 @@ url      = "https://maxoxo.me/rss/"
 fetcher  = "rss"
 active   = true
 notes    = "Ghost 博客, 个人观点向"
+
+[[source]]
+name     = "UW PLSE Blog"
+tier     = "T1.5"
+category = "research"
+url      = "https://uwplse.org/blog/feed.xml"
+fetcher  = "rss"
+active   = true
+notes    = "华盛顿大学编程语言与软件工程组博客; PL/verification/synthesis 研究一手"
 
 [[source]]
 name     = "Dwarkesh Patel"

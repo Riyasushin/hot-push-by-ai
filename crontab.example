@@ -1,7 +1,7 @@
 # ai-radar — paste into `crontab -e` (adjust paths if you move the project)
 # All commands cd into the project then run via uv. Logs go to data/*.log.
 
-PROJ=/home/rj/tmp/tt18-aihot
+PROJ=/home/rj/Apps/ai-reader
 UV=/home/rj/.local/bin/uv
 
 # Every 2 hours — pull all active feeds, dedup-insert into SQLite.

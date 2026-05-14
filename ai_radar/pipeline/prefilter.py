@@ -136,7 +136,7 @@ class Prefilter(BatchedLLMStep):
             "       s.name AS source "
             "FROM items i JOIN sources s ON s.id = i.source_id "
             "WHERE i.is_ai_related IS NULL "
-            "  AND s.category != 'entertainment' "
+            "  AND s.category NOT IN ('entertainment', 'classics') "
             "ORDER BY i.fetched_at DESC"
         )
         params: list = []

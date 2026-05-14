@@ -33,10 +33,11 @@ fi
 
 # 1. 抓取 + 入库 (RSS / WeRead, 不需要 API key)
 #    走本地代理 7890; 排除 localhost/127.* 让本地 RSSHub (41200) 直连
+#    .ts.net / 100.64/10 走 tailscale 直连 (paper-radar 源在自己的 tailnet)
 #    代理只覆盖这一步, score 走 kimi-cli (国内) 不能被代理
 http_proxy="${PROXY:-http://127.0.0.1:7890}" \
 https_proxy="${PROXY:-http://127.0.0.1:7890}" \
-no_proxy="localhost,127.0.0.1,::1" \
+no_proxy="localhost,127.0.0.1,::1,.ts.net,100.64.0.0/10" \
 "$UV" run radar fetch
 
 # 2. 预筛 (kimi-cli, 本地零成本; 先装并配置好 kimi-cli)

@@ -529,7 +529,7 @@ UPDATE items
        SELECT i.id FROM items i
         JOIN sources s ON s.id = i.source_id
         WHERE i.is_ai_related IS NULL
-          AND s.category != 'entertainment'
+          AND s.category NOT IN ('entertainment', 'classics')
           AND (i.claim_owner IS NULL OR i.claim_at < datetime('now', ?))
         ORDER BY i.fetched_at DESC
         LIMIT ?
@@ -982,6 +982,34 @@ def toggle_feedback(
             (item_id, signal, note),
         )
         return {"active": True, "cleared_opposite": cleared_opposite}
+
+
+# ---------- classics (pre-curated, synthetic scores) ----------
+
+_CLASSICS_CATEGORY = "经典必读"
+_CLASSICS_REASON = "paper-radar 课表精选的经典必读 (auto-classified)"
+_CLASSICS_MODEL = "auto-classics"
+
+
+def inject_classics_scores(conn: sqlite3.Connection) -> int:
+    """Synthesize a scores row for every item from a `category='classics'` source
+    that doesn't have one yet. dims=10/10/10/10, category='经典必读', model='auto-classics'.
+    Called from the weight step before the main walk — the walk then computes
+    total + is_selected normally (经典必读 thresholds are 0.0 so they all pass).
+    Returns the number of rows inserted.
+    """
+    cur = conn.execute(
+        """INSERT INTO scores (item_id, hardcore, primary_src, density, novelty,
+                               category, summary_zh, reason, model)
+           SELECT i.id, 10, 10, 10, 10,
+                  ?, NULL, ?, ?
+             FROM items i
+             JOIN sources s ON s.id = i.source_id
+            WHERE s.category = 'classics'
+              AND NOT EXISTS (SELECT 1 FROM scores sc WHERE sc.item_id = i.id)""",
+        (_CLASSICS_CATEGORY, _CLASSICS_REASON, _CLASSICS_MODEL),
+    )
+    return cur.rowcount or 0
 
 
 # ---------- entertainment (bypass pipeline) ----------

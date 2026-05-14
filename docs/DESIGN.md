@@ -107,12 +107,34 @@ kimi-cli -p "<prompt + JSON array of items>" --quiet --afk -y --no-thinking
 
 > 历史注：weights.toml 里有第 5 维 `relevance_to_me`（embedding 余弦的占位），权重设为 0，目前不参与计算。Step 3 砍了。
 
-**4 个类别**（`weights.toml [categories].all`）：
+**LLM 可选 4 类**（`weights.toml [categories].all` 前 4 项）：
 技术研究 / 产品发布 / 行业经济 / 技巧与观点。
 
 > 历史注：2026-05-07 从 6 类(论文研究/infra工程/模型发布/产品发布/行业经济/技巧与观点)合并到 4 类。
 > 论文/infra/模型发布在用户信源里事实上无法稳定区分(同一篇大厂技术解读三者皆是)；
 > 区分技术深度的活儿全交给 hardcore 维度。`scores.category` 字段已迁移所有旧记录到 `技术研究`。
+
+**第 5 类"经典必读"——绕过 LLM 的预精选通道**（2026-05-14 加）：
+
+源在 `sources.toml` 里设 `category = "classics"` 时（目前唯一: paper-radar），item 流水如下：
+
+1. `prefilter` SQL 排除 `s.category IN ('entertainment', 'classics')` — 不烧 kimi-cli token
+2. `score` 因 `is_ai_related = NULL` 自然跳过 — 不烧 DeepSeek 钱
+3. `weight` 入口先调 `db.inject_classics_scores(conn)` — 对这些 item 注入合成 `scores` 行：
+   - dims 全 = 10, `category = "经典必读"`, `model = "auto-classics"`, `summary_zh = NULL`
+   - `NOT EXISTS` 守卫保证幂等, 重跑 weight 不重复注入
+4. 主 walk 正常算 `total = 10 × tier_mul`, 阈值 0.0 → `is_selected = 1` 全部上桌
+
+为什么单独成一类: paper-radar 已经在自己那边用 kimi 写好了多段精读 (30 秒 pitch / 问题与动机 /
+论证与实验 / 模拟复现 / 附), 用 ai-radar 的通用 prefilter+score 是重复劳动且会被分类成"技术研究"
+丢进噪音池。
+经典必读单独成桶, 占据导航上独立的 pill, 不跟 LLM 评出来的 4 类竞争精选阈值。
+
+> 关键约束（来自 `feedback_filter_topic_not_person.md` 类似精神）: LLM 评分 prompt 里**不出现**
+> "经典必读"——它只通过 `source.category='classics'` 路由触发, 不通过模型选择。
+> 防止模型对其他源也"想给个面子分"乱挂。
+
+实现: `ai_radar/db.py::inject_classics_scores` + `ai_radar/pipeline/weight.py` 入口调用。
 
 实现：`ai_radar/pipeline/score.py`，依赖 `_llm.py` 的 LLMBackend。
 

@@ -67,5 +67,14 @@ T2   = 5.0     # 该类天生 hardcore 上不去 (方法论分享而非论文)
 
 # Step 2 评分 prompt 里要让模型分类的标签集 (代码侧用同一份).
 # 2026-05-07 简化: 6 类 → 4 类. 论文/infra/模型发布 合并成"技术研究".
+# 2026-05-14 加 "经典必读" 一类: paper-radar 源直接绕过 LLM 评分, 由
+# weight 步骤注入合成 scores 行 (category="经典必读", dims 全 10, tier=T1).
+# LLM 不会选这一类 (prompt 里没有), 只有 source.category='classics' 的源进入.
 [categories]
-all = ["技术研究", "产品发布", "行业经济", "技巧与观点"]
+all = ["技术研究", "产品发布", "行业经济", "技巧与观点", "经典必读"]
+
+# 经典必读: 全部自动 selected. 阈值 0.0 让 dims 全 10 + T1 乘子 = total 12 必然过线.
+[selection.thresholds."经典必读"]
+T1   = 0.0
+T1_5 = 0.0
+T2   = 0.0

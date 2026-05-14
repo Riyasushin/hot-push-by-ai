@@ -41,7 +41,7 @@ def _acquire_lock(path: Path):
     return fh
 
 
-def main() -> int:
+def main(name_filter: str | None = None) -> int:
     config = cfg.load_config()
     root = config.project_root
     lock_fh = _acquire_lock(root / LOCK_FILE_REL)
@@ -55,7 +55,22 @@ def main() -> int:
         f"-{deactivated} deactivated[/dim]"
     )
 
-    sources = db.active_sources(conn)
+    if name_filter:
+        # Manual / debug pick: match name substring (case-insensitive), ignore
+        # the active flag so disabled sources can be tested without flipping toml.
+        needle = name_filter.lower()
+        sources = [s for s in db.all_sources(conn) if needle in s.name.lower()]
+        if not sources:
+            console.print(f"[red]no source matches --source {name_filter!r}[/red]")
+            conn.close()
+            lock_fh.close()
+            return 1
+        console.print(
+            f"[dim]--source {name_filter!r} → {len(sources)} matched: "
+            + ", ".join(s.name for s in sources) + "[/dim]"
+        )
+    else:
+        sources = db.active_sources(conn)
     run_id = db.start_fetch_run(conn, len(sources))
 
     table = Table(show_header=True, header_style="bold")

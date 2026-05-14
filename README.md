@@ -16,6 +16,8 @@ uv sync
 
 # 1. 抓取 + 入库 (RSS / WeRead, 不需要 API key)
 uv run radar fetch
+# 只抓单个源 (子串匹配, 忽略 active flag, 用于调试一个具体源):
+uv run radar fetch --source paper-radar
 
 # 2. 预筛 (kimi-cli, 本地零成本; 先装并配置好 kimi-cli)
 uv run radar prefilter --limit 200
@@ -42,6 +44,19 @@ uv run radar weread-list       # 看微信读书的 shelf (需 WEREAD_COOKIE)
 ```
 
 挂 cron 见 [`crontab.example`](./crontab.example)。
+
+## 一键拉起 / 健康检查
+
+`scripts/launch.sh` 把 ai-reader 及所有依赖 (Tailscale / RSSHub docker / paper-radar / Caddy / WeRead keepalive) 一次性烟测 + 拉起。
+
+```bash
+bash scripts/launch.sh             # 检查 + 起所有依赖 + 烟测 (18 个 check, 全绿才退 0)
+bash scripts/launch.sh --check     # 只读模式: 不启动 / 不重启, 只看现状
+bash scripts/launch.sh --restart   # 全部 restart (不只 start)
+bash scripts/launch.sh --bootstrap # 烟测 + 自动补缺失的 cron 行 (auto-update / paper-radar enrich/tick/backfill-pdf)
+```
+
+涉及到的服务全图: tailscaled (system) · ai-radar-rsshub + redis (docker) · paper-radar.service (system) · aihot-reader.service + caddy.service + weread-keepalive.service (user-level) · 用户 cron。详见脚本顶部的注释画的 ASCII 拓扑图。
 
 ## WeRead cookie 维护（仅当用 weread fetcher）
 

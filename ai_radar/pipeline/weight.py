@@ -41,6 +41,9 @@ class Weighter:
 
         per_category: dict[str, int] = defaultdict(int)
         per_category_selected: dict[str, int] = defaultdict(int)
+        # Synthesize scores rows for classics sources before the walk so they
+        # join the normal weight+select pass. Idempotent: NOT EXISTS guard.
+        injected_classics = db.inject_classics_scores(conn)
         rows = db.all_scored_with_source(conn)
         # One transaction for the whole pass — keeps the writer lock for
         # one short burst instead of N implicit autocommits, and avoids
@@ -68,6 +71,7 @@ class Weighter:
         return {
             "step": self.name,
             "scored_total": len(rows),
+            "injected_classics": injected_classics,
             "selected_total": sum(per_category_selected.values()),
             "per_category": [
                 (c, per_category_selected[c], per_category[c])

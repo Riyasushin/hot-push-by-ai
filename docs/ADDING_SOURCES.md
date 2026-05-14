@@ -382,7 +382,30 @@ uv run python scripts/qidian-progress-sync.py --set 1010868264 245
 
 这条用法不需要 cookie，只改 progress.json。fetcher 行为不变。
 
-### 6. 必须自己写 fetcher 的情况
+### 6. 预精选过的"经典必读"源（`category = "classics"`）
+
+如果某个源**自己那边已经做完精读 / 精选**（典型: paper-radar — 已经用 kimi 写好了精读导读），
+没必要让 ai-radar 再跑一遍 prefilter+score 浪费 token。用 `category = "classics"`:
+
+```toml
+[[source]]
+name     = "LLM-system 精读队列 (paper-radar)"
+tier     = "T1"
+category = "classics"
+url      = "https://rijoshin-omen-1.tail88a62f.ts.net/sys-papers/feed/papers.xml"
+fetcher  = "rss"
+active   = true
+```
+
+效果（详见 `docs/DESIGN.md` 的"第 5 类经典必读"段）:
+- prefilter / score 都跳过, 0 LLM 成本
+- `weight` 入口注入合成 scores 行 (dims=10, `category="经典必读"`)
+- 自动出现在导航的 `经典必读` pill / `/category/经典必读` 路由 / `is_selected=1`
+
+跟 `entertainment` 的区别: entertainment 完全独立 (只在 `/entertainment` 页面, **不进** scores 表),
+classics 进 scores 表跟主流水合并 (上"精选" / 日报 / 类别页都能看到)。
+
+### 7. 必须自己写 fetcher 的情况
 
 只有当一个站点：
 - 没有官方 RSS
