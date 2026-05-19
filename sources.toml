@@ -1226,6 +1226,51 @@ url      = "https://plink.anyfeeder.com/meiriyiwen"
 fetcher  = "rss"
 active   = true
 
+[[source]]
+name     = "公众号 / 散风台"
+tier     = "T2"
+category = "entertainment"
+url      = "weread://book/MP_WXS_3925320164"
+fetcher  = "weread"
+active   = true
+notes    = "娱乐/阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "公众号 / 思庐哲学"
+tier     = "T2"
+category = "entertainment"
+url      = "weread://book/MP_WXS_3887762866"
+fetcher  = "weread"
+active   = true
+notes    = "娱乐/哲学阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "The Marginalian"
+tier     = "T2"
+category = "entertainment"
+url      = "http://feeds.feedburner.com/brainpickings/rss"
+fetcher  = "rss"
+active   = true
+notes    = "Formerly Brain Pickings; literature/philosophy/essays"
+
+[[source]]
+name     = "LessWrong"
+tier     = "T2"
+category = "entertainment"
+url      = "https://www.lesswrong.com/feed.xml"
+fetcher  = "rss"
+active   = true
+notes    = "Rationality/community essays; routed to entertainment to bypass AI scoring"
+
+[[source]]
+name     = "Farnam Street"
+tier     = "T2"
+category = "entertainment"
+url      = "https://fs.blog/feed"
+fetcher  = "rss"
+active   = true
+notes    = "Mental models / decision-making essays"
+
 # ============================================================================
 # 起点小说 (qidian fetcher 自实现, 不每章一条 — 按 "领先 N 章" 聚合, 一本书
 # 最多一行 "《xxx》 积压了 N 章未读". 状态走 data/qidian_progress.json,
