@@ -31,6 +31,15 @@ services:
     # like 1200/3000/8080). Loopback only — RSSHub has no auth by default.
     ports:
       - "127.0.0.1:41200:1200"
+    # Docker inherits the host resolver by default. On this machine that can be
+    # Tailscale DNS (100.100.100.100), which is not reliably reachable from the
+    # container network and makes routes fail with getaddrinfo ENOTFOUND.
+    dns:
+      - 223.5.5.5
+      - 119.29.29.29
+      - 1.1.1.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - rsshub.env
     environment:
@@ -41,6 +50,8 @@ services:
       REQUEST_RETRY: 2
       REQUEST_TIMEOUT: 8000
       LOGGER_LEVEL: info
+      NO_PROXY: localhost,127.0.0.1,::1,rsshub-redis
+      no_proxy: localhost,127.0.0.1,::1,rsshub-redis
     depends_on:
       - rsshub-redis
     # diygod/rsshub is debian-bookworm but has no wget/curl. Use node itself

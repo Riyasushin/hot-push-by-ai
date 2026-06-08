@@ -112,23 +112,57 @@ _ERRCODE_TO_EXC: dict[int, type[Exception]] = {
 }
 
 
+def _env_value(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _cookie_from_parts() -> str:
+    """Build a minimal WeRead Cookie header from env-provided cookie values."""
+    parts = _env_value("WEREAD_COOKIE_PARTS", "weread_cookie_parts")
+    if parts:
+        return parts
+
+    values = {
+        "wr_vid": _env_value("WEREAD_WR_VID", "weread_wr_vid", "WR_VID"),
+        "wr_skey": _env_value("WEREAD_WR_SKEY", "weread_wr_skey", "WR_SKEY"),
+        "wr_rt": _env_value("WEREAD_WR_RT", "weread_wr_rt", "WR_RT"),
+    }
+    pairs = [f"{key}={value}" for key, value in values.items() if value]
+    return "; ".join(pairs)
+
+
+def _validate_cookie(cookie: str) -> str:
+    # Sanity: must include wr_vid + wr_skey (HTTP-only auth tokens).
+    # If user grabbed via JS document.cookie, those will be missing.
+    if "wr_vid=" not in cookie or "wr_skey=" not in cookie:
+        raise WeReadCookieError(
+            "Cookie loaded but missing wr_vid / wr_skey (HTTP-only). "
+            "Provide WEREAD_COOKIE, WEREAD_COOKIE_PARTS, or "
+            "WEREAD_WR_VID + WEREAD_WR_SKEY. Don't use `copy(document.cookie)` "
+            "— it can't see HttpOnly. Grab from DevTools Network tab."
+        )
+    return cookie
+
+
 def _read_cookie() -> str:
     # Be lenient about case — shell convention is upper, but users often type
     # lowercase in .env. Check both.
     for var in ("WEREAD_COOKIE", "weread_cookie"):
         cookie = os.environ.get(var, "").strip()
         if cookie:
-            # Sanity: must include wr_vid + wr_skey (HTTP-only auth tokens).
-            # If user grabbed via JS document.cookie, those will be missing.
-            if "wr_vid=" not in cookie or "wr_skey=" not in cookie:
-                raise WeReadCookieError(
-                    "Cookie loaded but missing wr_vid / wr_skey (HTTP-only). "
-                    "Don't use `copy(document.cookie)` — it can't see HttpOnly. "
-                    "Grab from DevTools Network tab → any request → Cookie header."
-                )
-            return cookie
+            return _validate_cookie(cookie)
+
+    cookie = _cookie_from_parts()
+    if cookie:
+        return _validate_cookie(cookie)
+
     raise WeReadCookieError(
-        "WEREAD_COOKIE / weread_cookie not set in env or .env."
+        "WEREAD_COOKIE / weread_cookie not set. Alternatively provide "
+        "WEREAD_COOKIE_PARTS or WEREAD_WR_VID + WEREAD_WR_SKEY."
     )
 
 

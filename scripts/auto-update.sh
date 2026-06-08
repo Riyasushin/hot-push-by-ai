@@ -23,20 +23,18 @@ if ! command -v "$UV" &> /dev/null; then
     exit 1
 fi
 
-"$UV" sync
+# "$UV" sync
 
 # 0. 同步起点阅读进度 (qidian fetcher 依赖 data/qidian_progress.json)
 #    必须在 fetch 之前: fetcher 读 progress 决定是否 emit.
 #    || true: 没有 active qidian 源 / cookie 失效都不应炸掉整条流水.
 #    不走 proxy (qidian 国内站, 7890 反而更慢/会断).
-"$UV" run python scripts/qidian-progress-sync.py --once || true
+# "$UV" run python scripts/qidian-progress-sync.py --once || true
 
 # 1. 抓取 + 入库 (RSS / WeRead, 不需要 API key)
-#    走本地代理 7890; 排除 localhost/127.* 让本地 RSSHub (41200) 直连
-#    .ts.net / 100.64/10 走 tailscale 直连 (paper-radar 源在自己的 tailnet)
-#    代理只覆盖这一步, score 走 kimi-cli (国内) 不能被代理
-http_proxy="${PROXY:-http://127.0.0.1:7890}" \
-https_proxy="${PROXY:-http://127.0.0.1:7890}" \
+#    如外层环境提供 http_proxy/https_proxy/all_proxy（例如 127.0.0.1:65530），fetch 会继承；
+#    但本地 RSSHub (41200) 和 tailnet 源必须直连。
+NO_PROXY="localhost,127.0.0.1,::1,.ts.net,100.64.0.0/10" \
 no_proxy="localhost,127.0.0.1,::1,.ts.net,100.64.0.0/10" \
 "$UV" run radar fetch
 
@@ -51,4 +49,24 @@ no_proxy="localhost,127.0.0.1,::1,.ts.net,100.64.0.0/10" \
 
 # 5. 写当日 Markdown 日报
 "$UV" run radar report
+
+# 6. 刷新 paper-radar (独立服务, ~/Apps/paper-radar)
+#    放最后: 微信公众号文章有时效窗口(-2041), 必须 fetch 完立刻 prefilter/score, 不能被 enrich 拖延.
+#    顺序: enrich (慢, 给未来几天攒精读) → tick (秒级, 释放今天的配额到 RSS)
+#    周日额外 backfill-pdf 给 arxiv_id 缺失的论文补 PDF.
+#    subshell + unset UV_PROJECT_ENVIRONMENT: ai-reader 这边 export 的 .venv 路径会污染
+#    paper-radar 的 uv run, 必须隔离.
+PAPER_RADAR_ROOT="$HOME/Apps/paper-radar"
+if [[ -d "$PAPER_RADAR_ROOT" ]]; then
+    (
+        cd "$PAPER_RADAR_ROOT"
+        unset UV_PROJECT_ENVIRONMENT
+        "$UV" sync
+        "$UV" run paper-radar enrich --limit 6 >> data/enrich.log 2>&1 || true
+        "$UV" run paper-radar tick             >> data/tick.log   2>&1 || true
+        if [[ "$(date +%u)" == "7" ]]; then
+            "$UV" run paper-radar backfill-pdf --scope planned >> data/backfill.log 2>&1 || true
+        fi
+    ) || true
+fi
 

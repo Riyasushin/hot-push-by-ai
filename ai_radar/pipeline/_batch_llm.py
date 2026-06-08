@@ -41,6 +41,16 @@ log = logging.getLogger(__name__)
 
 _HTML_TAG = re.compile(r"<[^>]+>")
 _WHITESPACE = re.compile(r"\s+")
+_FATAL_BACKEND_ERROR_RE = re.compile(
+    r"kimi-cli persistent session failed twice|"
+    r"kimi-cli stdout EOF|"
+    r"kimi-cli no assistant response",
+    re.IGNORECASE,
+)
+
+
+def _is_fatal_backend_error(exc: Exception) -> bool:
+    return bool(_FATAL_BACKEND_ERROR_RE.search(repr(exc)))
 
 
 @dataclass
@@ -75,6 +85,7 @@ class BatchedLLMStep(ABC):
         limit: int | None = None,
         on_batch=None,  # callable(batch_index, total_batches, outcome, batch) -> None
         stale_minutes: int = 60,
+        should_stop=None,  # callable() -> bool; checked between batches
     ) -> dict:
         # Multi-consumer dedup: rather than SELECTing the whole pending set up
         # front (two concurrent runs would race on the same ids), we claim a
@@ -99,6 +110,8 @@ class BatchedLLMStep(ABC):
         i = 0
         try:
             while remaining is None or remaining > 0:
+                if should_stop is not None and should_stop():
+                    break
                 want = self.batch_size
                 if remaining is not None:
                     want = min(want, remaining)
@@ -151,6 +164,8 @@ class BatchedLLMStep(ABC):
             # re-claims it and trips the same filter again.
             return self._bisect_on_content_filter(conn, batch)
         except Exception as exc:  # noqa: BLE001 — backend can fail many ways
+            if _is_fatal_backend_error(exc):
+                raise
             return BatchOutcome(
                 requested=len(batch), written=0, failed=True, error=repr(exc)
             )

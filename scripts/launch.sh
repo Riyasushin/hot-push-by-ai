@@ -169,7 +169,7 @@ fi
 if systemctl --user is-active --quiet weread-keepalive.service; then
   good "weread-keepalive active"
 else
-  note "weread-keepalive inactive — cookie 可能已死, 重新抓: bash scripts/weread-cookie-grab.sh --write"
+  note "weread-keepalive inactive — cookie 可能已死, 重新抓: bash scripts/weread-cookie-update.sh"
 fi
 
 # --- 6. cron 完整性 -------------------------------------------------------------

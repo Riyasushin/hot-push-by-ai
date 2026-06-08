@@ -232,6 +232,17 @@ class KimiCLIPersistentBackend:
         self._proc.stdin.write(msg + "\n")
         self._proc.stdin.flush()
 
+    def _drain_stderr(self, max_bytes: int = 600) -> str:
+        """Non-blocking stderr drain — call just before killing the proc."""
+        if self._proc is None or self._proc.stderr is None:
+            return ""
+        import select
+        try:
+            ready, _, _ = select.select([self._proc.stderr], [], [], 0.3)
+            return self._proc.stderr.read(max_bytes) if ready else ""
+        except Exception:
+            return ""
+
     def _read_assistant(self) -> str:
         """Block until one assistant JSON line arrives; return content."""
         assert self._proc is not None and self._proc.stdout is not None
@@ -240,7 +251,9 @@ class KimiCLIPersistentBackend:
         while _t.time() < deadline:
             line = self._proc.stdout.readline()
             if not line:
-                raise RuntimeError("kimi-cli stdout EOF (subprocess died)")
+                stderr_snip = self._drain_stderr()
+                detail = f"\nstderr: {stderr_snip}" if stderr_snip else ""
+                raise RuntimeError(f"kimi-cli stdout EOF (subprocess died){detail}")
             line = line.strip()
             if not line:
                 continue

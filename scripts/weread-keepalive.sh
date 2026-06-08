@@ -21,7 +21,8 @@
 # Output line meanings:
 #   ✓ ROTATED wr_skey   = new skey received and written
 #   ✓ OK no rotation    = renewal returned without new skey (rare; cookie alive)
-#   ✗ EXPIRED           = cookie permanently dead (re-grab via cookie-grab.sh)
+#   ✗ EXPIRED           = cookie permanently dead (push a fresh browser cookie)
+#   ✗ HTTP error        = transient network / endpoint failure; keep retrying
 #
 # Usage:
 #   bash scripts/weread-keepalive.sh                     # foreground (in tmux for ssh)
@@ -119,6 +120,22 @@ extract_new_skey() {
         | tr -d '\r\n[:space:]'
 }
 
+# Probe a cookie against a business endpoint, not just renewal. Renewal can
+# occasionally return a skey that /web/shelf/sync still rejects with -2012.
+probe_cookie() {
+    local cookie="$1" body status
+    body=$(mktemp)
+    status=$(curl -s --max-time 12 -o "$body" -w '%{http_code}' \
+                -H "Cookie: $cookie" -H "User-Agent: $UA" -H "Referer: $REFERER" \
+                "$PROBE_URL" || echo "000")
+    if [[ "$status" == "200" ]] && grep -q '"books"' "$body"; then
+        rm -f "$body"
+        return 0
+    fi
+    rm -f "$body"
+    return 1
+}
+
 # Try one renewal POST. Stdout: new skey if any. Return: 0 success, non-0 error.
 try_renew() {
     local cookie="$1" ql_body="$2" hdr body status
@@ -172,15 +189,10 @@ ping_once() {
     cookie="$(read_cookie)" || return 2
 
     local now ; now=$(date +'%Y-%m-%d %H:%M:%S')
-    local new_skey rc
+    local new_skey rc new_cookie
 
     # ----- 1. POST /web/login/renewal with ql=false ----------------------
     new_skey=$(try_renew "$cookie" "$RENEW_BODY_QL_FALSE"); rc=$?
-
-    # ----- 2. If no skey returned, retry with ql=true (per-account flag) -
-    if [[ -z "$new_skey" && "$rc" -ne 4 ]]; then
-        new_skey=$(try_renew "$cookie" "$RENEW_BODY_QL_TRUE"); rc=$?
-    fi
 
     if [[ "$rc" -eq 4 ]]; then
         echo "$now ✗ EXPIRED (errcode -2012). 浏览器登录 weread.qq.com → F12 复制 Cookie → 写入 .env 的 weread_cookie"
@@ -191,31 +203,51 @@ ping_once() {
         return 3
     fi
 
+    # ----- 2. Validate the returned skey against /web/shelf/sync ----------
+    if [[ -n "$new_skey" ]]; then
+        new_cookie="$(swap_skey "$cookie" "$new_skey")"
+        if ! probe_cookie "$new_cookie"; then
+            echo "$now ⚠ ql=false skey rejected by shelf probe; retrying ql=true"
+            new_skey=""
+        fi
+    fi
+
+    # ----- 3. Retry with ql=true if ql=false missed or produced bad skey ---
+    if [[ -z "$new_skey" && "$rc" -ne 4 ]]; then
+        new_skey=$(try_renew "$cookie" "$RENEW_BODY_QL_TRUE"); rc=$?
+        if [[ "$rc" -eq 4 ]]; then
+            echo "$now ✗ EXPIRED (errcode -2012). 浏览器登录 weread.qq.com → F12 复制 Cookie → 写入 .env 的 weread_cookie"
+            return 4
+        fi
+        if [[ "$rc" -eq 3 ]]; then
+            echo "$now ✗ HTTP error from $RENEW_URL"
+            return 3
+        fi
+        if [[ -n "$new_skey" ]]; then
+            new_cookie="$(swap_skey "$cookie" "$new_skey")"
+            if ! probe_cookie "$new_cookie"; then
+                echo "$now ✗ renewal returned skey but shelf probe still failed"
+                return 5
+            fi
+        fi
+    fi
+
     if [[ -z "$new_skey" ]]; then
-        # Both ql variants returned 200 but no skey. Probe shelf to verify alive.
-        local body status
-        body=$(mktemp)
-        status=$(curl -s --max-time 12 -o "$body" -w '%{http_code}' \
-                    -H "Cookie: $cookie" -H "User-Agent: $UA" -H "Referer: $REFERER" \
-                    "$PROBE_URL" || echo "000")
-        if [[ "$status" == "200" ]] && grep -q '"books"' "$body"; then
+        # Both ql variants returned 200 but no skey. Probe existing cookie.
+        if probe_cookie "$cookie"; then
             echo "$now ⚠ no rotation this time (renewal 200 but no new skey, shelf still works)"
-            rm -f "$body"
             return 0
         fi
-        rm -f "$body"
         echo "$now ✗ renewal returned no skey + shelf probe failed"
         return 5
     fi
 
-    # ----- 3. Splice new skey into cookie + persist ----------------------
-    local new_cookie
-    new_cookie="$(swap_skey "$cookie" "$new_skey")"
+    # ----- 4. Persist only a skey that passed shelf probe -----------------
     if ! write_back_cookie "$new_cookie"; then
         echo "$now ⚠ got new skey but persist to $ENV_FILE failed"
         return 6
     fi
-    echo "$now ✓ ROTATED wr_skey (${new_skey:0:8}***, persisted to $ENV_FILE)"
+    echo "$now ✓ ROTATED wr_skey (${new_skey:0:8}***, shelf OK, persisted to $ENV_FILE)"
 }
 
 if [[ "${1:-}" == "--once" ]]; then
@@ -225,11 +257,10 @@ fi
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') keepalive starting (interval=${INTERVAL}s)"
 echo "$(date +'%Y-%m-%d %H:%M:%S') strategy: POST /web/login/renewal -> harvest new wr_skey -> persist to $ENV_FILE"
-echo "$(date +'%Y-%m-%d %H:%M:%S') self-stops on -2012 (cookie genuinely dead) or 3 consecutive HTTP failures"
+echo "$(date +'%Y-%m-%d %H:%M:%S') self-stops only on -2012 (cookie genuinely dead) or unreadable env"
 trap 'echo "$(date +'\''%Y-%m-%d %H:%M:%S'\'') keepalive stopping (signal)"; exit 0' INT TERM
 
 http_fail_streak=0
-MAX_HTTP_FAILS=3
 
 while true; do
     ping_once; rc=$?
@@ -249,11 +280,7 @@ while true; do
             ;;
         3|5|6)
             http_fail_streak=$((http_fail_streak + 1))
-            echo "$(date +'%Y-%m-%d %H:%M:%S') (consecutive failures: $http_fail_streak/$MAX_HTTP_FAILS)"
-            if (( http_fail_streak >= MAX_HTTP_FAILS )); then
-                echo "$(date +'%Y-%m-%d %H:%M:%S') ✗✗ STOPPING — $MAX_HTTP_FAILS consecutive failures."
-                exit 0
-            fi
+            echo "$(date +'%Y-%m-%d %H:%M:%S') (consecutive transient failures: $http_fail_streak; keepalive stays running)"
             ;;
     esac
     sleep "$INTERVAL"

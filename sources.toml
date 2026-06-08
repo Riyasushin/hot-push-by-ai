@@ -789,13 +789,13 @@ active   = false
 notes    = "未确认风格; xlab.app + bestblogs.dev 两个公共 wechat2rss 都未收录; 可向任一仓库提 issue, 或 self-host WeWe RSS"
 
 # ============================================================================
-# ---- 知乎 KOL 批量 (28 个, 2026-05-07) ----
+# ---- 知乎 KOL 批量 (40 个, 2026-05-24) ----
 #
-# urlToken 来源: WebSearch + 公开 zhihu.com/people/<token> 命中.
+# urlToken 来源: WebSearch / 用户提供的公开 zhihu.com/people/<token>.
 # 接入方式: 走 RSSHub (rsshub.app 或自建实例).
 # 公共 rsshub.app 对知乎反爬不稳, 推荐替换成自建域名后再 active=true.
-# 已 active=true 的 22 个: 已通过至少一次搜索命中 urlToken.
-# active=false 的 6 个: 搜索未给出 urlToken, 留 TODO 待人工补.
+# 已 active=true 的 32 个: 已有 urlToken.
+# active=false 的 8 个: 搜索未给出 urlToken, 留 TODO 待人工补.
 # ============================================================================
 
 [[source]]
@@ -1059,6 +1059,105 @@ fetcher  = "rss"
 active   = true
 notes    = "GiantPandaCV / OneFlow / PyTorch 推理优化"
 
+[[source]]
+name     = "知乎 / xi-wai-wai-10-89"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/xi-wai-wai-10-89"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/xi-wai-wai-10-89"
+
+[[source]]
+name     = "知乎 / hzwer"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/hzwer"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/hzwer"
+
+[[source]]
+name     = "知乎 / Arthur-wang"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/Arthur-wang"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/Arthur-wang"
+
+[[source]]
+name     = "知乎 / zhaosiying12138"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/zhaosiying12138"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/zhaosiying12138"
+
+[[source]]
+name     = "知乎 / li-zhen-yu-64-47-2"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/li-zhen-yu-64-47-2"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/li-zhen-yu-64-47-2"
+
+[[source]]
+name     = "知乎 / 68-45-38-52"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/68-45-38-52"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/68-45-38-52"
+
+[[source]]
+name     = "知乎 / sansme"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/sansme"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/sansme"
+
+[[source]]
+name     = "知乎 / yang-yuan-hang-83"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/yang-yuan-hang-83"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/yang-yuan-hang-83"
+
+[[source]]
+name     = "知乎 / fan-yu-da-19"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/fan-yu-da-19"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/fan-yu-da-19"
+
+[[source]]
+name     = "知乎 / zhi-wang-09"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/zhi-wang-09"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/zhi-wang-09"
+
+[[source]]
+name     = "知乎 / kylin_7070"
+tier     = "T2"
+category = "kol"
+url      = "http://127.0.0.1:41200/zhihu/people/activities/kylin_7070"
+fetcher  = "rss"
+active   = true
+notes    = "2026-05-24 用户提供: https://www.zhihu.com/people/kylin_7070"
+
 # ============================================================================
 # AI HOT (本项目灵感来源, 数字生命卡兹克的精选 / 日报站)
 # 站点 https://aihot.virxact.com — 自带原生 RSS, 直接走 rss fetcher.
@@ -1243,6 +1342,51 @@ url      = "weread://book/MP_WXS_3887762866"
 fetcher  = "weread"
 active   = true
 notes    = "娱乐/哲学阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "公众号 / 两味书屋"
+tier     = "T2"
+category = "entertainment"
+url      = "weread://book/MP_WXS_3559226247"
+fetcher  = "weread"
+active   = true
+notes    = "娱乐/阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "公众号 / 文奂"
+tier     = "T2"
+category = "entertainment"
+url      = "weread://book/MP_WXS_3523818344"
+fetcher  = "weread"
+active   = true
+notes    = "娱乐/阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "公众号 / 躺卷化的南木喵"
+tier     = "T2"
+category = "entertainment"
+url      = "weread://book/MP_WXS_3625107716"
+fetcher  = "weread"
+active   = true
+notes    = "娱乐/阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "公众号 / 缸中之脑cybernetics"
+tier     = "T2"
+category = "entertainment"
+url      = "weread://book/MP_WXS_3095442465"
+fetcher  = "weread"
+active   = true
+notes    = "娱乐/阅读源; 走 WeRead cookie + /web/mp/articles"
+
+[[source]]
+name     = "公众号 / 追问nextquestion"
+tier     = "T2"
+category = "entertainment"
+url      = "https://admin.next-question.com/zh/feed/"
+fetcher  = "rss"
+active   = true
+notes    = "娱乐/科学阅读源; 公众号官方站中文 RSS; WeChat biz=MzI3MjQ4MDMyOQ=="
 
 [[source]]
 name     = "The Marginalian"

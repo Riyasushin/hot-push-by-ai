@@ -106,7 +106,9 @@ tail -f data/weread.log
 | `DEEPSEEK_API_KEY` 或 `DPSK_API`   | ✅ 评分用                | —                          | DeepSeek 评分 (`pipeline/score.py`)                                                                                                               |
 | `DEEPSEEK_API_BASE`                | –                       | `https://api.deepseek.com` | OpenAI-兼容 endpoint                                                                                                                              |
 | `DEEPSEEK_MODEL`                   | –                       | `deepseek-v4-flash`        | 模型 ID。V4 系: `deepseek-v4-flash`(默认, 便宜/快)/`deepseek-v4-pro`(更强, 评分质量优先时用)。`deepseek-chat`/`deepseek-reasoner` 2026-07-24 弃用 |
-| `WEREAD_COOKIE` 或 `weread_cookie` | 公众号 走 WeRead 时必填 | —                          | 微信读书 cookie；DevTools Network tab → 任一请求 → Request Headers → Cookie 整行复制（不要 `copy(document.cookie)`，会缺 HTTP-only 字段）         |
+| `WEREAD_COOKIE` 或 `weread_cookie` | 公众号走 WeRead 时必填其一 | —                          | 微信读书 cookie；DevTools Network tab → 任一请求 → Request Headers → Cookie 整行复制（不要 `copy(document.cookie)`，会缺 HTTP-only 字段）         |
+| `WEREAD_COOKIE_PARTS`              | 可替代整串 cookie       | —                          | 只给必要字段，例如 `wr_vid=...; wr_skey=...; wr_rt=...`。可写进 `.env`，也可临时在 `uv run radar fetch` 前传入。                             |
+| `WEREAD_WR_VID` / `WEREAD_WR_SKEY` / `WEREAD_WR_RT` | 可替代整串 cookie | —                          | 分开提供 WeRead cookie 字段；可写进 `.env`。`wr_vid` 和 `wr_skey` 必填，`wr_rt` 建议带上。也兼容小写名和无前缀 `WR_*`。                     |
 | `QIDIAN_COOKIE`                    | 订起点小说时必填        | —                          | 起点 cookie；浏览器登录 qidian.com → DevTools → Application → Cookies → qidian.com 全部字段拼成 `k=v; k=v; ...` 一行。供 `scripts/qidian-progress-sync.py` 抓 bookcase HTML 用 |
 
 ## 配置文件

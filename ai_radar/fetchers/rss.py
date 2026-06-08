@@ -36,6 +36,17 @@ _USER_AGENT = "ai-radar/0.1 (+https://github.com/local; personal aggregator)"
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 
+def _is_loopback_url(url: str) -> bool:
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        return False
+    if not host:
+        return False
+    host = host.lower()
+    return host == "localhost" or host == "::1" or host.startswith("127.")
+
+
 def _normalize_url(url: str) -> str:
     if not url:
         return url
@@ -86,8 +97,14 @@ class RSSFetcher:
                 timeout=_TIMEOUT,
                 follow_redirects=True,
                 headers=headers,
+                trust_env=not _is_loopback_url(source.url),
             ) as client:
                 resp = client.get(source.url)
+        except httpx.TimeoutException as exc:
+            return FetchResult(
+                items=[], error=f"timeout: {exc!r}",
+                etag=source.etag, last_modified=source.last_modified,
+            )
         except httpx.HTTPError as exc:
             return FetchResult(
                 items=[], error=f"http: {exc!r}",

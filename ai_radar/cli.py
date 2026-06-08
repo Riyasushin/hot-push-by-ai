@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from threading import Event, Lock
 
 import time
 
@@ -151,7 +153,9 @@ def status() -> None:
 def prefilter(
     limit: int = typer.Option(30, "--limit", "-n", help="Max items to classify this run."),
     batch_size: int = typer.Option(20, "--batch-size", "-b",
-                                   help="Items per kimi-cli invocation (bigger = fewer subprocess starts but more retry pain on failure)."),
+                                   help="Items per LLM call."),
+    backend: str = typer.Option("kimi", "--backend",
+                                help="kimi (default, local/free) | deepseek (paid API, useful when kimi quota is exhausted)."),
 ) -> None:
     """Classify pending items as AI-related (1) or not (0) via kimi-cli.
 
@@ -161,16 +165,26 @@ def prefilter(
 
     \b
     Examples:
-      radar prefilter                  # default 30 items, batch 20
+      radar prefilter                  # default 30 items, batch 20, kimi backend
       radar prefilter --limit 200      # catch up on a backlog
       radar prefilter -n 50 -b 10      # smaller batches if kimi-cli is flaky
+      radar prefilter --backend deepseek --limit 200
     """
     config = cfg.load_config()
     conn = db.connect(config.project_root / DB_FILE_REL)
     db.init_db(conn)
 
-    pf = Prefilter(config.project_root, batch_size=batch_size)
-    with _progress_bar("prefilter (kimi-cli)") as bar:
+    if backend == "deepseek":
+        from ai_radar.pipeline._llm import DeepSeekBackend
+        be = DeepSeekBackend()
+    elif backend == "kimi":
+        be = None
+    else:
+        console.print(f"[red]unknown backend {backend!r}; pick kimi | deepseek[/red]")
+        raise typer.Exit(2)
+
+    pf = Prefilter(config.project_root, batch_size=batch_size, backend=be)
+    with _progress_bar(f"prefilter [{pf.backend.name}]") as bar:
         task = bar.add_task("prefilter", total=1, status="loading…")
         cum = {"classified": 0, "fail": 0}
 
@@ -199,6 +213,120 @@ def prefilter(
     conn.close()
 
 
+def _split_limit(total: int, workers: int) -> list[int]:
+    base, extra = divmod(total, workers)
+    return [base + (1 if i < extra else 0) for i in range(workers) if base + (1 if i < extra else 0) > 0]
+
+
+def _score_kimi_parallel(config: cfg.Config, *, limit: int, batch_size: int, workers: int) -> int:
+    from ai_radar.pipeline._llm import KimiCLIPersistentBackend
+
+    preview_conn = db.connect(config.project_root / DB_FILE_REL)
+    db.init_db(preview_conn)
+    pending = db.pending_for_scoring(preview_conn, limit=limit)
+    preview_conn.close()
+
+    pending_count = len(pending)
+    if pending_count == 0:
+        console.print("[dim]no pending scoring items[/dim]")
+        return 0
+
+    worker_limits = _split_limit(pending_count, workers)
+    active_workers = len(worker_limits)
+    approx_total_batches = max(1, (pending_count + batch_size - 1) // batch_size)
+    stop = Event()
+    lock = Lock()
+    aggregate = {
+        "model": "kimi-cli-persistent",
+        "pending": pending_count,
+        "scored": 0,
+        "batches_ok": 0,
+        "batches_failed": 0,
+        "errors": [],
+    }
+
+    def run_worker(worker_idx: int, worker_limit: int) -> dict:
+        be = KimiCLIPersistentBackend(
+            cwd=str(config.project_root), thinking=False, timeout_s=180,
+        )
+        conn = db.connect(config.project_root / DB_FILE_REL)
+        db.init_db(conn)
+        scorer = Scorer(config.project_root, batch_size=batch_size, backend=be, config=config)
+
+        def on_batch(i, total, outcome, batch):
+            with lock:
+                if outcome.failed:
+                    status = f"w{worker_idx} ✗ #{i}: {(outcome.error or '')[:54]}"
+                else:
+                    head = (batch[0].title or "")[:26] if batch else ""
+                    status = f"w{worker_idx} ✓ #{i} +{outcome.written} — {head}"
+                parallel_bar.update(parallel_task, advance=1, status=status)
+
+        try:
+            return scorer.run(
+                conn,
+                limit=worker_limit,
+                on_batch=on_batch,
+                stale_minutes=_stale_minutes(),
+                should_stop=stop.is_set,
+            )
+        except RuntimeError as exc:
+            if "kimi-cli" in repr(exc):
+                stop.set()
+            raise
+        finally:
+            close = getattr(be, "close", None)
+            if close is not None:
+                close()
+            conn.close()
+
+    console.print(
+        f"[dim]parallel kimi scoring: workers={active_workers}, "
+        f"pending={pending_count}, batch_size={batch_size}[/dim]"
+    )
+    fatal: Exception | None = None
+    with _progress_bar(f"scoring [kimi-cli-persistent x{active_workers}]") as parallel_bar:
+        parallel_task = parallel_bar.add_task(
+            "scoring", total=approx_total_batches, status="starting workers…",
+        )
+        with ThreadPoolExecutor(max_workers=active_workers) as executor:
+            futures = [
+                executor.submit(run_worker, idx, worker_limit)
+                for idx, worker_limit in enumerate(worker_limits, start=1)
+            ]
+            for fut in as_completed(futures):
+                try:
+                    stats = fut.result()
+                except Exception as exc:  # noqa: BLE001
+                    stop.set()
+                    fatal = exc
+                    parallel_bar.update(
+                        parallel_task,
+                        status=f"fatal backend error: {repr(exc)[:80]}",
+                    )
+                    continue
+                aggregate["scored"] += int(stats.get("scored", 0))
+                aggregate["batches_ok"] += int(stats.get("batches_ok", 0))
+                aggregate["batches_failed"] += int(stats.get("batches_failed", 0))
+                aggregate["errors"].extend(stats.get("errors", []) or [])
+
+    if fatal is not None:
+        console.print(
+            "[red]scoring stopped: a Kimi worker failed after its built-in "
+            f"retry.[/red] {repr(fatal)[:500]}"
+        )
+        return 1
+
+    console.print(f"[bold]scoring done[/]  model={aggregate['model']} x{active_workers}")
+    console.print(f"  pending requested: {aggregate['pending']}")
+    console.print(f"  scored:            [green]{aggregate['scored']}[/green]")
+    console.print(f"  batches OK:        {aggregate['batches_ok']}")
+    console.print(f"  batches failed:    [red]{aggregate['batches_failed']}[/red]")
+    for e in aggregate["errors"][:3]:
+        console.print(f"    [red]{e}[/red]")
+    return 0
+
+
 @app.command()
 def score(
     limit: int = typer.Option(20, "--limit", "-n", help="Max items to score this run."),
@@ -206,6 +334,8 @@ def score(
                                    help="Items per LLM call. Score prompt is heavy — keep small (3-5) for kimi to avoid timeouts."),
     backend: str = typer.Option("deepseek", "--backend",
                                 help="deepseek (default, paid, fast) | kimi (one persistent kimi-cli session reused across batches, free) | kimi-once (legacy spawn-per-batch) | kimi-api (HTTP)."),
+    workers: int = typer.Option(1, "--workers", "-w",
+                                help="Parallel scoring workers. For now, only --backend kimi supports workers > 1."),
 ) -> None:
     """Score pending AI items on 4 dims + classify category + write summary_zh / reason.
 
@@ -224,12 +354,24 @@ def score(
       radar score                          # default deepseek-v4-flash, 20 items
       radar score --limit 100              # catch up
       radar score --backend kimi           # free, kimi-cli subprocess (~5-15s/batch optimized)
+      radar score --backend kimi --workers 3 --limit 300
       radar score --backend kimi-api       # opt-in HTTP path (slow if you have a reverse-tunnel proxy)
       DEEPSEEK_MODEL=deepseek-v4-pro radar score   # higher-quality scoring
     """
+    if workers < 1:
+        console.print("[red]--workers must be >= 1[/red]")
+        raise typer.Exit(2)
+    if workers > 1 and backend != "kimi":
+        console.print("[red]--workers > 1 currently only supports --backend kimi[/red]")
+        raise typer.Exit(2)
+
     config = cfg.load_config()
     conn = db.connect(config.project_root / DB_FILE_REL)
     db.init_db(conn)
+
+    if workers > 1:
+        conn.close()
+        raise typer.Exit(_score_kimi_parallel(config, limit=limit, batch_size=batch_size, workers=workers))
 
     if backend == "kimi":
         # Default kimi backend = ONE persistent kimi-cli session reused across
@@ -272,7 +414,29 @@ def score(
                 bar.update(task, advance=1,
                            status=f"✓ #{i} +{outcome.written} (cum {cum['scored']}) — {head}")
 
-        stats = scorer.run(conn, limit=limit, on_batch=on_batch, stale_minutes=_stale_minutes())
+        try:
+            stats = scorer.run(
+                conn, limit=limit, on_batch=on_batch,
+                stale_minutes=_stale_minutes(),
+            )
+        except RuntimeError as exc:
+            msg = repr(exc)
+            if "kimi-cli" in msg:
+                bar.update(task, status=f"fatal backend error: {msg[:80]}")
+                console.print(
+                    "[red]scoring stopped: Kimi backend failed after its "
+                    f"built-in retry.[/red] {msg[:500]}"
+                )
+                close = getattr(scorer.backend, "close", None)
+                if close is not None:
+                    close()
+                conn.close()
+                raise typer.Exit(1) from exc
+            raise
+
+    close = getattr(scorer.backend, "close", None)
+    if close is not None:
+        close()
 
     console.print(f"[bold]scoring done[/]  model={stats['model']}")
     console.print(f"  pending requested: {stats['pending']}")
